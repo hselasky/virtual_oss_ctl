@@ -42,6 +42,7 @@
 #include <QGroupBox>
 #include <QGridLayout>
 #include <QScrollBar>
+#include <QScrollArea>
 #include <QTabWidget>
 #include <QLabel>
 #include <QTimer>
@@ -166,6 +167,7 @@ public:
 
 	QTimer *watchdog;
 
+	const char *dsp_name;
 	int dsp_fd;
 	int generation;
 

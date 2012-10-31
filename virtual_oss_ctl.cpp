@@ -505,6 +505,10 @@ VOssMainWindow :: VOssMainWindow(QWidget *parent, const char *dsp)
 
 	generation = 0;
 
+	setMinimumSize(128,128);
+
+	dsp_name = dsp;
+
 	dsp_fd = ::open(dsp, O_RDWR);
 
 	gl = new QGridLayout(this);
@@ -564,8 +568,6 @@ VOssMainWindow :: VOssMainWindow(QWidget *parent, const char *dsp)
 	connect(watchdog, SIGNAL(timeout()), this, SLOT(handle_watchdog()));
 
 	watchdog->start(100);
-
-	setWindowTitle(QString("Virtual Oss Control"));
 }
 
 VOssMainWindow :: ~VOssMainWindow()
@@ -577,6 +579,20 @@ void
 VOssMainWindow :: handle_watchdog(void)
 {
 	int x;
+	int error;
+
+	if (dsp_fd < 0)
+		dsp_fd = ::open(dsp_name, O_RDWR);
+
+	if (dsp_fd < 0)
+		return;
+
+	error = ::ioctl(dsp_fd, VIRTUAL_OSS_GET_VERSION, &x);
+	if (error != 0) {
+		::close(dsp_fd);
+		dsp_fd = -1;
+		return;
+	}
 
 	generation ++;
 
@@ -618,7 +634,13 @@ main(int argc, char **argv)
 
 	VOssMainWindow mw(0, ctldevice);
 
-	mw.show();
+	QScrollArea *psa = new QScrollArea();
+
+	psa->setWidget(&mw);
+	psa->setWindowTitle(QString("Virtual Oss Control"));
+	psa->setWindowIcon(QIcon(QString(":/virtual_oss_ctl.png")));
+	psa->show();
+	psa->setMinimumWidth(mw.width() + psa->verticalScrollBar()->width() + 4);
 
 	return (app.exec());
 }
