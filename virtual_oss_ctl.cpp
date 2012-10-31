@@ -43,8 +43,15 @@ VOssVolumeBar :: VOssVolumeBar(VOssController *_parent, int _type, int _channel,
 	memset(&mon_peak, 0, sizeof(mon_peak));
 	mon_peak.number = _number;
 
-	setMinimumSize(VBAR_WIDTH, VBAR_HEIGHT);
-	setMaximumSize(VBAR_WIDTH, VBAR_HEIGHT);
+	generation = 0;
+
+	if (type == VOSS_TYPE_DEVICE) {
+		setMinimumSize(VBAR_WIDTH, VBAR_HEIGHT);
+		setMaximumSize(VBAR_WIDTH, VBAR_HEIGHT);
+	} else {
+		setMinimumSize(VBAR_WIDTH, VBAR_HEIGHT / 2);
+		setMaximumSize(VBAR_WIDTH, VBAR_HEIGHT / 2);
+	}
 }
 
 VOssVolumeBar :: ~VOssVolumeBar()
@@ -84,58 +91,82 @@ void
 VOssVolumeBar :: paintEvent(QPaintEvent *event)
 {
 	int fd = parent->parent->dsp_fd;
+	int doit;
 	int error;
 	int w;
 	int x;
 
 	QPainter paint(this);
-	QColor bar;
+
 	QColor black(0,0,0);
-	paint.fillRect(0,0,VBAR_WIDTH,VBAR_HEIGHT,black);
+	QColor split(192,192,0);
+
+	doit = (generation != parent->parent->generation);
+	generation = parent->parent->generation;
 
 	switch (type) {
 	case VOSS_TYPE_DEVICE:
-		error = ::ioctl(fd, VIRTUAL_OSS_GET_DEV_PEAK, &dev_peak);
-		if (error)
-			break;
+		paint.fillRect(0,0,VBAR_WIDTH,VBAR_HEIGHT,black);
+
+		if (doit) {
+			error = ::ioctl(fd, VIRTUAL_OSS_GET_DEV_PEAK, &dev_peak);
+			if (error)
+				break;
+		}
 		w = convertPeak(dev_peak.rx_peak_value, dev_peak.bits);
 		drawBar(paint, 0, VBAR_HEIGHT / 2, w);
 
 		w = convertPeak(dev_peak.tx_peak_value, dev_peak.bits);
 		drawBar(paint, VBAR_HEIGHT / 2, VBAR_HEIGHT / 2, w);
+
+		for (x = 1; x != 8; x++) {
+			QColor white(192,192,192 - x * 16);
+			w = (x * VBAR_WIDTH) / 8;
+			paint.fillRect(w,0,1,VBAR_HEIGHT,white);
+		}
+		paint.fillRect(0,VBAR_HEIGHT/2,VBAR_WIDTH,1,split);
 		break;
 	case VOSS_TYPE_INPUT_MON:
-		error = ::ioctl(fd, VIRTUAL_OSS_GET_INPUT_MON_PEAK, &mon_peak);
-		if (error)
-			break;
+		paint.fillRect(0,0,VBAR_WIDTH,VBAR_HEIGHT / 2,black);
+
+		if (doit) {
+			error = ::ioctl(fd, VIRTUAL_OSS_GET_INPUT_MON_PEAK, &mon_peak);
+			if (error)
+				break;
+		}
 		w = convertPeak(mon_peak.peak_value, mon_peak.bits);
-		drawBar(paint, 0, VBAR_HEIGHT, w);
+		drawBar(paint, 0, VBAR_HEIGHT / 2, w);
+
+		for (x = 1; x != 8; x++) {
+			QColor white(192,192,192 - x * 16);
+			w = (x * VBAR_WIDTH) / 8;
+			paint.fillRect(w,0,1,VBAR_HEIGHT / 2,white);
+		}
 		break;
 	case VOSS_TYPE_OUTPUT_MON:
-		error = ::ioctl(fd, VIRTUAL_OSS_GET_INPUT_MON_PEAK, &mon_peak);
-		if (error)
-			break;
+		paint.fillRect(0,0,VBAR_WIDTH,VBAR_HEIGHT / 2,black);
+
+		if (doit) {
+			error = ::ioctl(fd, VIRTUAL_OSS_GET_INPUT_MON_PEAK, &mon_peak);
+			if (error)
+				break;
+		}
 		w = convertPeak(mon_peak.peak_value, mon_peak.bits);
-		drawBar(paint, 0, VBAR_HEIGHT, w);
+		drawBar(paint, 0, VBAR_HEIGHT / 2, w);
+
+		for (x = 1; x != 8; x++) {
+			QColor white(192,192,192 - x * 16);
+			w = (x * VBAR_WIDTH) / 8;
+			paint.fillRect(w,0,1,VBAR_HEIGHT / 2,white);
+		}
 		break;
 	default:
 		break;
 	}
-
-	for (x = 1; x != 8; x++) {
-		QColor white(192,192,192 - x * 16);
-		w = (x * VBAR_WIDTH) / 8;
-		paint.fillRect(w,0,1,VBAR_HEIGHT,white);
-	}
-
-	if (type == VOSS_TYPE_DEVICE) {
-		QColor split(192,192,0);
-		paint.fillRect(0,VBAR_HEIGHT/2,VBAR_WIDTH,1,split);
-	}
 }
 
 VOssController :: VOssController(VOssMainWindow *_parent, int _type, int _channel, int _number)
-  : QWidget(_parent)
+  : QGroupBox(_parent)
 {
 	int x;
 
@@ -158,7 +189,6 @@ VOssController :: VOssController(VOssMainWindow *_parent, int _type, int _channe
 
 	peak_vol = new VOssVolumeBar(this, _type, _channel, _number);
 
-	lbl_desc = new QLabel();
 	rx_mute = new QCheckBox();
 
 	tx_mute = new QCheckBox();
@@ -199,94 +229,68 @@ VOssController :: VOssController(VOssMainWindow *_parent, int _type, int _channe
 	switch (type) {
 	case VOSS_TYPE_DEVICE:
 		x = 0;
-		gl->addWidget(peak_vol, 0, x, 1, 1);
+		gl->addWidget(new QLabel(QString("RX")), 0, x, 1, 1, Qt::AlignCenter);
+		gl->addWidget(new QLabel(QString("TX")), 1, x, 1, 1, Qt::AlignCenter);
 		x++;
-		gl->addWidget(lbl_desc, 0, x, 1, 1);
+		gl->addWidget(peak_vol, 0, x, 2, 1, Qt::AlignCenter);
 		x++;
-		gl->addWidget(new QLabel(QString("RX [")), 0, x, 1, 1);
-
+		gl->addWidget(new QLabel(QString("MUTE:")), 0, x, 1, 1, Qt::AlignCenter);
+		gl->addWidget(new QLabel(QString("MUTE:")), 1, x, 1, 1, Qt::AlignCenter);
 		x++;
-		gl->addWidget(new QLabel(QString("M:")), 0, x, 1, 1);
+		gl->addWidget(rx_mute, 0, x, 1, 1, Qt::AlignCenter);
+		gl->addWidget(tx_mute, 1, x, 1, 1, Qt::AlignCenter);
 		x++;
-		gl->addWidget(rx_mute, 0, x, 1, 1);
-
+		gl->addWidget(new QLabel(QString("POL:")), 0, x, 1, 1, Qt::AlignCenter);
+		gl->addWidget(new QLabel(QString("POL:")), 1, x, 1, 1, Qt::AlignCenter);
 		x++;
-		gl->addWidget(new QLabel(QString("P:")), 0, x, 1, 1);
+		gl->addWidget(rx_polarity, 0, x, 1, 1, Qt::AlignCenter);
+		gl->addWidget(tx_polarity, 1, x, 1, 1, Qt::AlignCenter);
 		x++;
-		gl->addWidget(rx_polarity, 0, x, 1, 1);
-
+		gl->addWidget(new QLabel(QString("CHAN:")), 0, x, 1, 1, Qt::AlignCenter);
+		gl->addWidget(new QLabel(QString("CHAN:")), 1, x, 1, 1, Qt::AlignCenter);
 		x++;
-		gl->addWidget(new QLabel(QString("CH:")), 0, x, 1, 1);
+		gl->addWidget(spn_rx_chn, 0, x, 1, 1, Qt::AlignCenter);
+		gl->addWidget(spn_tx_chn, 1, x, 1, 1, Qt::AlignCenter);
 		x++;
-		gl->addWidget(spn_rx_chn, 0, x, 1, 1);
-
+		gl->addWidget(rx_amp_up, 0, x, 1, 1, Qt::AlignCenter);
+		gl->addWidget(tx_amp_up, 1, x, 1, 1, Qt::AlignCenter);
 		x++;
-		gl->addWidget(rx_amp_up, 0, x, 1, 1);
+		gl->addWidget(lbl_rx_amp, 0, x, 1, 1, Qt::AlignCenter);
+		gl->addWidget(lbl_tx_amp, 1, x, 1, 1, Qt::AlignCenter);
 		x++;
-		gl->addWidget(lbl_rx_amp, 0, x, 1, 1);
-		x++;
-		gl->addWidget(rx_amp_down, 0, x, 1, 1);
-
-		x++;
-		gl->addWidget(new QLabel(QString("]  TX [")), 0, x, 1, 1);
-
-		x++;
-		gl->addWidget(new QLabel(QString("M:")), 0, x, 1, 1);
-		x++;
-		gl->addWidget(tx_mute, 0, x, 1, 1);
-		x++;
-		gl->addWidget(new QLabel(QString("P:")), 0, x, 1, 1);
-		x++;
-		gl->addWidget(tx_polarity, 0, x, 1, 1);
-
-		x++;
-		gl->addWidget(new QLabel(QString("CH:")), 0, x, 1, 1);
-		x++;
-		gl->addWidget(spn_tx_chn, 0, x, 1, 1);
-
-		x++;
-		gl->addWidget(tx_amp_up, 0, x, 1, 1);
-		x++;
-		gl->addWidget(lbl_tx_amp, 0, x, 1, 1);
-		x++;
-		gl->addWidget(tx_amp_down, 0, x, 1, 1);
-
-		x++;
-		gl->addWidget(new QLabel(QString("]")), 0, x, 1, 1);
-
+		gl->addWidget(rx_amp_down, 0, x, 1, 1, Qt::AlignCenter);
+		gl->addWidget(tx_amp_down, 1, x, 1, 1, Qt::AlignCenter);
 		break;
 
 	case VOSS_TYPE_INPUT_MON:
 	case VOSS_TYPE_OUTPUT_MON:
 		x = 0;
-		gl->addWidget(peak_vol, 0, x, 1, 1);
+		gl->addWidget(peak_vol, 0, x, 1, 1, Qt::AlignCenter);
 		x++;
-		gl->addWidget(lbl_desc, 0, x, 1, 1);
+		gl->addWidget(new QLabel(QString("MUTE:")), 0, x, 1, 1, Qt::AlignCenter);
 		x++;
-		gl->addWidget(new QLabel(QString("MUTE:")), 0, x, 1, 1);
+		gl->addWidget(rx_mute, 0, x, 1, 1, Qt::AlignCenter);
 		x++;
-		gl->addWidget(rx_mute, 0, x, 1, 1);
+		gl->addWidget(new QLabel(QString("POL:")), 0, x, 1, 1, Qt::AlignCenter);
 		x++;
-		gl->addWidget(new QLabel(QString("POL:")), 0, x, 1, 1);
-		x++;
-		gl->addWidget(rx_polarity, 0, x, 1, 1);
+		gl->addWidget(rx_polarity, 0, x, 1, 1, Qt::AlignCenter);
 
 		x++;
-		gl->addWidget(new QLabel(QString("SCH:")), 0, x, 1, 1);
+		gl->addWidget(new QLabel(QString("SCH:")), 0, x, 1, 1, Qt::AlignCenter);
 		x++;
-		gl->addWidget(spn_rx_chn, 0, x, 1, 1);
+		gl->addWidget(spn_rx_chn, 0, x, 1, 1, Qt::AlignCenter);
 
 		x++;
-		gl->addWidget(new QLabel(QString("DCH:")), 0, x, 1, 1);
+		gl->addWidget(new QLabel(QString("DCH:")), 0, x, 1, 1, Qt::AlignCenter);
 		x++;
-		gl->addWidget(spn_tx_chn, 0, x, 1, 1);
+		gl->addWidget(spn_tx_chn, 0, x, 1, 1, Qt::AlignCenter);
 
 		x++;
-		gl->addWidget(rx_amp_up, 0, x, 1, 1);
+		gl->addWidget(rx_amp_up, 0, x, 1, 1, Qt::AlignCenter);
 		x++;
-		gl->addWidget(lbl_rx_amp, 0, x, 1, 1);
+		gl->addWidget(lbl_rx_amp, 0, x, 1, 1, Qt::AlignCenter);
 		x++;
-		gl->addWidget(rx_amp_down, 0, x, 1, 1);
+		gl->addWidget(rx_amp_down, 0, x, 1, 1, Qt::AlignCenter);
 		break;
 
 	default:
@@ -306,13 +310,13 @@ VOssController :: set_desc(const char *desc)
 
 	if (desc != NULL && desc[0]) {
 		snprintf(buf, sizeof(buf),
-	            "%s - channel %d.%d", desc, number, channel);
+	            "%s - channel %d", desc, channel);
 	} else {
 		snprintf(buf, sizeof(buf),
 		    "Channel %d.%d", number, channel);
 	}
 
-	lbl_desc->setText(QString(buf));
+	setTitle(QString(buf));
 }
 
 void
@@ -499,6 +503,8 @@ VOssMainWindow :: VOssMainWindow(QWidget *parent, const char *dsp)
 	int chan = 0;
 	int error;
 
+	generation = 0;
+
 	dsp_fd = ::open(dsp, O_RDWR);
 
 	gl = new QGridLayout(this);
@@ -571,6 +577,8 @@ void
 VOssMainWindow :: handle_watchdog(void)
 {
 	int x;
+
+	generation ++;
 
 	for (x = 0; x != MAX_VOLUME_BAR; x++) {
 		if (vb[x] == NULL)

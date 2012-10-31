@@ -39,6 +39,7 @@
 #include <QDialog>
 #include <QPushButton>
 #include <QSpinBox>
+#include <QGroupBox>
 #include <QGridLayout>
 #include <QScrollBar>
 #include <QTabWidget>
@@ -91,11 +92,12 @@ public:
 	int type;
 	int channel;
 	int number;
+	int generation;
 
 	void paintEvent(QPaintEvent *);
 };
 
-class VOssController : public QWidget
+class VOssController : public QGroupBox
 {
 	Q_OBJECT;
 
@@ -114,7 +116,6 @@ public:
 
 	QGridLayout *gl;
 
-	QLabel *lbl_desc;
 	QCheckBox *rx_mute;
 	QCheckBox *tx_mute;
 	QCheckBox *rx_polarity;
@@ -166,6 +167,7 @@ public:
 	QTimer *watchdog;
 
 	int dsp_fd;
+	int generation;
 
 public slots:
 
