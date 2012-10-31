@@ -81,6 +81,8 @@ public:
 	VOssVolumeBar(VOssController *parent = 0, int type = 0, int chan = 0, int num = 0);
 	~VOssVolumeBar();
 
+	void drawBar(QPainter &, int, int, int);
+
 	VOssController *parent;
 
 	struct virtual_oss_dev_peak dev_peak;

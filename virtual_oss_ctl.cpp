@@ -53,24 +53,31 @@ VOssVolumeBar :: ~VOssVolumeBar()
 }
 
 static int
-convertPeak(long long x)
+convertPeak(long long x, uint8_t bits)
 {
-	uint8_t y;
+	if (bits <= 32)
+		x <<= 32 - bits;
+	else
+		x >>= bits - 32; 
 
-	if (x & 0xFFFFFFFF00000000ULL) {
-		for (y = 63; y; y--)
-			if (x & (1ULL << y))
-				break;
-	} else {
-		for (y = 31; y; y--)
-			if (x & (1ULL << y))
-				break;
+	x = ((x * (long long)VBAR_WIDTH) >> 31);
+
+	if (x < 0 || x >= VBAR_WIDTH)
+		x = VBAR_WIDTH;
+
+	return (x);
+}
+
+void
+VOssVolumeBar :: drawBar(QPainter &paint, int y, int h, int level)
+{
+	const int d = (VBAR_WIDTH / 8);
+	int x;
+
+	for (x = 0; level > 0; level -= d, x += d) {
+		QColor bar(96 + x, 192 - x, 96);
+		paint.fillRect(x, y, (level >= d) ? d : level, h, bar);
 	}
-
-	if (y == 0)
-		y = 1;
-
-	return ((y * VBAR_WIDTH) / 63);
 }
 
 void
@@ -91,30 +98,25 @@ VOssVolumeBar :: paintEvent(QPaintEvent *event)
 		error = ::ioctl(fd, VIRTUAL_OSS_GET_DEV_PEAK, &dev_peak);
 		if (error)
 			break;
-		w = convertPeak(dev_peak.rx_peak_value);
-		bar = QColor(64 + w, 128, 128);
-		paint.fillRect(0,0,w,VBAR_HEIGHT / 2,bar);
+		w = convertPeak(dev_peak.rx_peak_value, dev_peak.bits);
+		drawBar(paint, 0, VBAR_HEIGHT / 2, w);
 
-		w = convertPeak(dev_peak.tx_peak_value);
-		bar = QColor(64 + w, 128, 128);
-		paint.fillRect(0,VBAR_HEIGHT/2,w,VBAR_HEIGHT / 2,bar);
-
+		w = convertPeak(dev_peak.tx_peak_value, dev_peak.bits);
+		drawBar(paint, VBAR_HEIGHT / 2, VBAR_HEIGHT / 2, w);
 		break;
 	case VOSS_TYPE_INPUT_MON:
 		error = ::ioctl(fd, VIRTUAL_OSS_GET_INPUT_MON_PEAK, &mon_peak);
 		if (error)
 			break;
-		w = convertPeak(mon_peak.peak_value);
-		bar = QColor(64 + w, 128, 128);
-		paint.fillRect(0,0,w,VBAR_HEIGHT,bar);
+		w = convertPeak(mon_peak.peak_value, mon_peak.bits);
+		drawBar(paint, 0, VBAR_HEIGHT, w);
 		break;
 	case VOSS_TYPE_OUTPUT_MON:
 		error = ::ioctl(fd, VIRTUAL_OSS_GET_INPUT_MON_PEAK, &mon_peak);
 		if (error)
 			break;
-		w = convertPeak(mon_peak.peak_value);
-		bar = QColor(64 + w, 128, 128);
-		paint.fillRect(0,0,w,VBAR_HEIGHT,bar);
+		w = convertPeak(mon_peak.peak_value, mon_peak.bits);
+		drawBar(paint, 0, VBAR_HEIGHT, w);
 		break;
 	default:
 		break;
@@ -122,7 +124,7 @@ VOssVolumeBar :: paintEvent(QPaintEvent *event)
 
 	for (x = 1; x != 8; x++) {
 		QColor white(192,192,192 - x * 16);
-		w = convertPeak(1ULL << (x * 8));
+		w = (x * VBAR_WIDTH) / 8;
 		paint.fillRect(w,0,1,VBAR_HEIGHT,white);
 	}
 
@@ -555,7 +557,7 @@ VOssMainWindow :: VOssMainWindow(QWidget *parent, const char *dsp)
 	watchdog = new QTimer(this);
 	connect(watchdog, SIGNAL(timeout()), this, SLOT(handle_watchdog()));
 
-	watchdog->start(250);
+	watchdog->start(100);
 
 	setWindowTitle(QString("Virtual Oss Control"));
 }
