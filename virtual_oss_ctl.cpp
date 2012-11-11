@@ -309,8 +309,21 @@ VOssController :: set_desc(const char *desc)
 	char buf[64];
 
 	if (desc != NULL && desc[0]) {
-		snprintf(buf, sizeof(buf),
-	            "%s - channel %d", desc, channel);
+		switch (type) {
+		case VOSS_TYPE_DEVICE:
+			snprintf(buf, sizeof(buf),
+			    "%s - channel %d", desc, channel);
+			break;
+		case VOSS_TYPE_INPUT_MON:
+		case VOSS_TYPE_OUTPUT_MON:
+			snprintf(buf, sizeof(buf),
+			    "%s - number %d", desc, number);
+			break;
+		default:
+			snprintf(buf, sizeof(buf),
+			    "Channel %d.%d", number, channel);
+			break;
+		}
 	} else {
 		snprintf(buf, sizeof(buf),
 		    "Channel %d.%d", number, channel);
