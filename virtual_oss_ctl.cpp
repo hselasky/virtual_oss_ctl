@@ -147,7 +147,7 @@ VOssVolumeBar :: paintEvent(QPaintEvent *event)
 		paint.fillRect(0,0,VBAR_WIDTH,VBAR_HEIGHT / 2,black);
 
 		if (doit) {
-			error = ::ioctl(fd, VIRTUAL_OSS_GET_INPUT_MON_PEAK, &mon_peak);
+			error = ::ioctl(fd, VIRTUAL_OSS_GET_OUTPUT_MON_PEAK, &mon_peak);
 			if (error)
 				break;
 		}
