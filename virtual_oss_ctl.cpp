@@ -286,9 +286,6 @@ VOssController :: VOssController(VOssMainWindow *_parent, int _type, int _channe
 		x++;
 		gl->addWidget(rx_amp_down, 0, x, 1, 1, Qt::AlignCenter);
 		gl->addWidget(tx_amp_down, 1, x, 1, 1, Qt::AlignCenter);
-
-		if (channel != 0)
-			break;
 		x++;
 		gl->addWidget(new QLabel(QString("I-LIM:")), 0, x, 1, 1, Qt::AlignCenter);
 		x++;
@@ -460,8 +457,6 @@ VOssController :: watchdog(void)
 	switch (type) {
 	int error;
 	case VOSS_TYPE_DEVICE:
-		if (channel != 0)
-			break;
 		memset(&dev_limit, 0, sizeof(dev_limit));
 		dev_limit.number = number;
 		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_GET_DEV_LIMIT, &dev_limit);
@@ -619,8 +614,6 @@ VOssController :: handle_spn_lim(int value)
 		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_SET_OUTPUT_LIMIT, &out_limit);
 		break;
 	case VOSS_TYPE_DEVICE:
-		if (channel != 0)
-			break;
 		memset(&dev_limit, 0, sizeof(dev_limit));
 		dev_limit.number = number;
 		dev_limit.limit = value;
