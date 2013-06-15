@@ -26,7 +26,8 @@
 # Makefile for virtual_oss_ctl
 #
 
-VERSION=1.0.0
+VERSION=1.0.2
+PACKAGE=virtual_oss_ctl-${VERSION}
 
 PREFIX?=/usr/local
 
@@ -46,18 +47,12 @@ clean: Makefile.unix
 	make -f Makefile.unix clean
 
 package: clean
-	tar -cvf temp.tar --exclude="*~" --exclude="*#" \
-		--exclude=".svn" --exclude="*.orig" --exclude="*.rej" \
+	tar -cvf ${PACKAGE}.tar \
 		Makefile virtual_oss*.pro virtual_oss*.qrc \
 		virtual_oss*.cpp virtual_oss*.h virtual_oss*.png \
 		virtual_oss*.desktop
-
-	rm -rf virtual_oss_ctl-${VERSION}
-
-	mkdir virtual_oss_ctl-${VERSION}
-
-	tar -xvf temp.tar -C virtual_oss_ctl-${VERSION}
-
-	rm -rf temp.tar
-
-	tar -jcvf virtual_oss_ctl-${VERSION}.tar.bz2 virtual_oss_ctl-${VERSION}
+	rm -rf ${PACKAGE}
+	mkdir ${PACKAGE}
+	tar -xvf ${PACKAGE}.tar -C ${PACKAGE}
+	rm -rf ${PACKAGE}.tar
+	tar -jcvf ${PACKAGE}.tar.bz2 ${PACKAGE}
