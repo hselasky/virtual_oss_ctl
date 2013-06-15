@@ -64,11 +64,13 @@
 #include "../virtual_oss/virtual_oss.h"
 
 #define	MAX_VOLUME_BAR 128
+#define	MAX_MASTER_CHN 64
 
 enum {
 	VOSS_TYPE_DEVICE,
 	VOSS_TYPE_INPUT_MON,
 	VOSS_TYPE_OUTPUT_MON,
+	VOSS_TYPE_MASTER_OUTPUT,
 	VOSS_TYPE_MAX,
 };
 
@@ -89,6 +91,7 @@ public:
 
 	struct virtual_oss_dev_peak dev_peak;
 	struct virtual_oss_mon_peak mon_peak;
+	struct virtual_oss_output_peak out_peak;
 
 	int type;
 	int channel;
@@ -113,6 +116,8 @@ public:
 	void set_config(void);
 	void get_config(void);
 
+	void watchdog(void);
+
 	VOssMainWindow *parent;
 
 	QGridLayout *gl;
@@ -128,6 +133,8 @@ public:
 	QPushButton *tx_amp_up;
 	QPushButton *tx_amp_down;
 
+	QSpinBox *spn_group;
+	QSpinBox *spn_limit;
 	QSpinBox *spn_rx_chn;
 	QSpinBox *spn_tx_chn;
 
@@ -141,6 +148,9 @@ public:
 
 	struct virtual_oss_dev_info dev_info;
 	struct virtual_oss_mon_info mon_info;
+	struct virtual_oss_output_limit out_limit;
+	struct virtual_oss_output_chn_grp out_chn_grp;
+	struct virtual_oss_dev_limit dev_limit;
 
 public slots:
 	void handle_mute(int);
@@ -151,6 +161,8 @@ public slots:
 	void handle_tx_amp_down(void);
 	void handle_spn_a(int);
 	void handle_spn_b(int);
+	void handle_spn_grp(int);
+	void handle_spn_lim(int);
 };
 
 class VOssMainWindow : public QWidget

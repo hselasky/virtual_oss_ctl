@@ -43,6 +43,9 @@ VOssVolumeBar :: VOssVolumeBar(VOssController *_parent, int _type, int _channel,
 	memset(&mon_peak, 0, sizeof(mon_peak));
 	mon_peak.number = _number;
 
+	memset(&out_peak, 0, sizeof(out_peak));
+	out_peak.channel = _channel;
+
 	generation = 0;
 
 	if (type == VOSS_TYPE_DEVICE) {
@@ -160,6 +163,23 @@ VOssVolumeBar :: paintEvent(QPaintEvent *event)
 			paint.fillRect(w,0,1,VBAR_HEIGHT / 2,white);
 		}
 		break;
+	case VOSS_TYPE_MASTER_OUTPUT:
+		paint.fillRect(0,0,VBAR_WIDTH,VBAR_HEIGHT / 2,black);
+
+		if (doit) {
+			error = ::ioctl(fd, VIRTUAL_OSS_GET_OUTPUT_PEAK, &out_peak);
+			if (error)
+				break;
+		}
+		w = convertPeak(out_peak.peak_value, out_peak.bits);
+		drawBar(paint, 0, VBAR_HEIGHT / 2, w);
+
+		for (x = 1; x != 8; x++) {
+			QColor white(192,192,192 - x * 16);
+			w = (x * VBAR_WIDTH) / 8;
+			paint.fillRect(w,0,1,VBAR_HEIGHT / 2,white);
+		}
+		break;
 	default:
 		break;
 	}
@@ -208,6 +228,10 @@ VOssController :: VOssController(VOssMainWindow *_parent, int _type, int _channe
 
 	tx_amp_down = new QPushButton(QString("-"));
 
+	spn_group = new QSpinBox();
+	spn_group->setRange(0, 63);
+	spn_limit = new QSpinBox();
+	spn_limit->setRange(0, 63);
 	spn_rx_chn = new QSpinBox();
 	spn_rx_chn->setRange(0, 64);
 	spn_tx_chn = new QSpinBox();
@@ -223,6 +247,8 @@ VOssController :: VOssController(VOssMainWindow *_parent, int _type, int _channe
 	connect(rx_amp_down, SIGNAL(released()), this, SLOT(handle_rx_amp_down()));
 	connect(tx_amp_up, SIGNAL(released()), this, SLOT(handle_tx_amp_up()));
 	connect(tx_amp_down, SIGNAL(released()), this, SLOT(handle_tx_amp_down()));
+	connect(spn_group, SIGNAL(valueChanged(int)), this, SLOT(handle_spn_grp(int)));
+	connect(spn_limit, SIGNAL(valueChanged(int)), this, SLOT(handle_spn_lim(int)));
 	connect(spn_rx_chn, SIGNAL(valueChanged(int)), this, SLOT(handle_spn_a(int)));
 	connect(spn_tx_chn, SIGNAL(valueChanged(int)), this, SLOT(handle_spn_b(int)));
 
@@ -260,6 +286,10 @@ VOssController :: VOssController(VOssMainWindow *_parent, int _type, int _channe
 		x++;
 		gl->addWidget(rx_amp_down, 0, x, 1, 1, Qt::AlignCenter);
 		gl->addWidget(tx_amp_down, 1, x, 1, 1, Qt::AlignCenter);
+		x++;
+		gl->addWidget(new QLabel(QString("I-LIM:")), 0, x, 1, 1, Qt::AlignCenter);
+		x++;
+		gl->addWidget(spn_limit, 0, x, 1, 1, Qt::AlignCenter);
 		break;
 
 	case VOSS_TYPE_INPUT_MON:
@@ -293,6 +323,19 @@ VOssController :: VOssController(VOssMainWindow *_parent, int _type, int _channe
 		gl->addWidget(rx_amp_down, 0, x, 1, 1, Qt::AlignCenter);
 		break;
 
+	case VOSS_TYPE_MASTER_OUTPUT:
+		x = 0;
+		gl->addWidget(peak_vol, 0, x, 1, 1, Qt::AlignCenter);
+		x++;
+		gl->addWidget(new QLabel(QString("GRP:")), 0, x, 1, 1, Qt::AlignCenter);
+		x++;
+		gl->addWidget(spn_group, 0, x, 1, 1, Qt::AlignCenter);
+		x++;
+		gl->addWidget(new QLabel(QString("O-LIM:")), 0, x, 1, 1, Qt::AlignCenter);
+		x++;
+		gl->addWidget(spn_limit, 0, x, 1, 1, Qt::AlignCenter);
+		break;
+
 	default:
 		break;
 	}
@@ -311,6 +354,7 @@ VOssController :: set_desc(const char *desc)
 	if (desc != NULL && desc[0]) {
 		switch (type) {
 		case VOSS_TYPE_DEVICE:
+		case VOSS_TYPE_MASTER_OUTPUT:
 			snprintf(buf, sizeof(buf),
 			    "%s - channel %d", desc, channel);
 			break;
@@ -406,6 +450,41 @@ VOssController :: set_config(void)
 }
 
 void
+VOssController :: watchdog(void)
+{
+	peak_vol->repaint();
+
+	switch (type) {
+	int error;
+	case VOSS_TYPE_DEVICE:
+		memset(&dev_limit, 0, sizeof(dev_limit));
+		dev_limit.number = number;
+		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_GET_DEV_LIMIT, &dev_limit);
+		if (error != 0)
+			break;
+		spn_limit->setValue(dev_limit.limit);
+		break;
+	case VOSS_TYPE_MASTER_OUTPUT:
+		memset(&out_chn_grp, 0, sizeof(out_chn_grp));
+		out_chn_grp.channel = channel;
+		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_GET_OUTPUT_CHN_GRP, &out_chn_grp);
+		if (error != 0)
+			break;
+		spn_group->setValue(out_chn_grp.group);
+
+		memset(&out_limit, 0, sizeof(out_limit));
+		out_limit.group = out_chn_grp.group;
+		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_GET_OUTPUT_LIMIT, &out_limit);
+		if (error != 0)
+			break;
+		spn_limit->setValue(out_limit.limit);
+		break;
+	default:
+		break;
+	}
+}
+
+void
 VOssController :: get_config(void)
 {
 	int error;
@@ -446,6 +525,9 @@ VOssController :: get_config(void)
 		spn_rx_chn->setValue(mon_info.src_chan);
 		spn_tx_chn->setValue(mon_info.dst_chan);
 		set_desc("Output Monitor");
+		break;
+	case VOSS_TYPE_MASTER_OUTPUT:
+		set_desc("Master Output");
 		break;
 	default:
 		break;
@@ -504,11 +586,50 @@ VOssController :: handle_spn_b(int)
 	set_config();
 }
 
+void
+VOssController :: handle_spn_grp(int value)
+{
+	switch (type) {
+	int error;
+	case VOSS_TYPE_MASTER_OUTPUT:
+		memset(&out_chn_grp, 0, sizeof(out_chn_grp));
+		out_chn_grp.channel = channel;
+		out_chn_grp.group = value;
+		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_SET_OUTPUT_CHN_GRP, &out_chn_grp);
+		break;
+	default:
+		break;
+	}
+}
+
+void
+VOssController :: handle_spn_lim(int value)
+{
+	switch (type) {
+	int error;
+	case VOSS_TYPE_MASTER_OUTPUT:
+		memset(&out_limit, 0, sizeof(out_limit));
+		out_limit.group = spn_group->value();
+		out_limit.limit = value;
+		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_SET_OUTPUT_LIMIT, &out_limit);
+		break;
+	case VOSS_TYPE_DEVICE:
+		memset(&dev_limit, 0, sizeof(dev_limit));
+		dev_limit.number = number;
+		dev_limit.limit = value;
+		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_SET_DEV_LIMIT, &dev_limit);
+		break;
+	default:
+		break;
+	}
+}
+
 VOssMainWindow :: VOssMainWindow(QWidget *parent, const char *dsp)
   : QWidget(parent)
 {
 	struct virtual_oss_dev_peak dev_peak;
 	struct virtual_oss_mon_peak mon_peak;
+	struct virtual_oss_output_peak out_peak;
 
 	int x;
 	int type = 0;
@@ -551,6 +672,15 @@ VOssMainWindow :: VOssMainWindow(QWidget *parent, const char *dsp)
 				break;
 			}
 			error = ::ioctl(dsp_fd, VIRTUAL_OSS_GET_OUTPUT_MON_PEAK, &mon_peak);
+			break;
+		case VOSS_TYPE_MASTER_OUTPUT:
+			memset(&out_peak, 0, sizeof(out_peak));
+			out_peak.channel = chan;
+			if (num != 0) {
+				error = EINVAL;
+				break;
+			}
+			error = ::ioctl(dsp_fd, VIRTUAL_OSS_GET_OUTPUT_PEAK, &out_peak);
 			break;
 		default:
 			error = EINVAL;
@@ -612,7 +742,7 @@ VOssMainWindow :: handle_watchdog(void)
 	for (x = 0; x != MAX_VOLUME_BAR; x++) {
 		if (vb[x] == NULL)
 			continue;
-		vb[x]->peak_vol->repaint();
+		vb[x]->watchdog();
 	}
 }
 
