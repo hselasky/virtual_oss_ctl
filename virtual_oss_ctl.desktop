@@ -1,7 +1,7 @@
 [Desktop Entry]
 Name=Virtual OSS
 Comment=Virtual OSS Graphical Control Panel
-Exec=virtual_oss_ctl
+Exec=virtual_oss_ctl -f /dev/vdsp.ctl
 Icon=virtual_oss_ctl
 Categories=AudioVideo;Audio
 Terminal=false
