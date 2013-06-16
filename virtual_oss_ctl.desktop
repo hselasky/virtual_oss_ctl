@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Virtual OSS
+Comment=Virtual OSS Graphical Control Panel
+Exec=virtual_oss_ctl
+Icon=virtual_oss_ctl
+Categories=AudioVideo;Audio
+Terminal=false
+Type=Application
+
