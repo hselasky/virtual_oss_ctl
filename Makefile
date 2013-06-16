@@ -28,10 +28,11 @@
 
 VERSION=1.0.2
 PACKAGE=virtual_oss_ctl-${VERSION}
+EXT_HEADER=../virtual_oss/virtual_oss.h
 
 PREFIX?=/usr/local
 
-all: Makefile.unix
+all: Makefile.unix virtual_oss.h
 	make -f Makefile.unix -j2 all
 
 Makefile.unix: virtual_oss_ctl.pro
@@ -40,13 +41,18 @@ Makefile.unix: virtual_oss_ctl.pro
 help:
 	@echo "Targets are: all, install, clean, package, help"
 
+.if exists(${EXT_HEADER})
+virtual_oss.h: ${EXT_HEADER}
+	cp -v ${.ALLSRC} ${.TARGET}
+.endif
+
 install: Makefile.unix
 	make -f Makefile.unix install
 
 clean: Makefile.unix
 	make -f Makefile.unix clean
 
-package: clean
+package: clean virtual_oss.h
 	tar -cvf ${PACKAGE}.tar \
 		Makefile virtual_oss*.pro virtual_oss*.qrc \
 		virtual_oss*.cpp virtual_oss*.h virtual_oss*.png \
