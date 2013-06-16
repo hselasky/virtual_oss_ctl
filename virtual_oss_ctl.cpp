@@ -353,6 +353,11 @@ VOssController :: VOssController(VOssMainWindow *_parent, int _type, int _channe
 		gl->addWidget(spn_limit, 0, x, 1, 1, Qt::AlignCenter);
 		break;
 
+	case VOSS_TYPE_MASTER_INPUT:
+		x = 0;
+		gl->addWidget(peak_vol, 0, x, 1, 1, Qt::AlignLeft);
+		break;
+
 	default:
 		break;
 	}
@@ -372,6 +377,7 @@ VOssController :: set_desc(const char *desc)
 		switch (type) {
 		case VOSS_TYPE_DEVICE:
 		case VOSS_TYPE_MASTER_OUTPUT:
+		case VOSS_TYPE_MASTER_INPUT:
 			snprintf(buf, sizeof(buf),
 			    "%s - channel %d", desc, channel);
 			break;
@@ -545,6 +551,9 @@ VOssController :: get_config(void)
 		break;
 	case VOSS_TYPE_MASTER_OUTPUT:
 		set_desc("Master Output");
+		break;
+	case VOSS_TYPE_MASTER_INPUT:
+		set_desc("Master Input");
 		break;
 	default:
 		break;
