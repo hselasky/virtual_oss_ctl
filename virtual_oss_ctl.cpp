@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2012 Hans Petter Selasky. All rights reserved.
+ * Copyright (c) 2012-2013 Hans Petter Selasky. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,8 +43,8 @@ VOssVolumeBar :: VOssVolumeBar(VOssController *_parent, int _type, int _channel,
 	memset(&mon_peak, 0, sizeof(mon_peak));
 	mon_peak.number = _number;
 
-	memset(&out_peak, 0, sizeof(out_peak));
-	out_peak.channel = _channel;
+	memset(&master_peak, 0, sizeof(master_peak));
+	master_peak.channel = _channel;
 
 	generation = 0;
 
@@ -167,11 +167,28 @@ VOssVolumeBar :: paintEvent(QPaintEvent *event)
 		paint.fillRect(0,0,VBAR_WIDTH,VBAR_HEIGHT / 2,black);
 
 		if (doit) {
-			error = ::ioctl(fd, VIRTUAL_OSS_GET_OUTPUT_PEAK, &out_peak);
+			error = ::ioctl(fd, VIRTUAL_OSS_GET_OUTPUT_PEAK, &master_peak);
 			if (error)
 				break;
 		}
-		w = convertPeak(out_peak.peak_value, out_peak.bits);
+		w = convertPeak(master_peak.peak_value, master_peak.bits);
+		drawBar(paint, 0, VBAR_HEIGHT / 2, w);
+
+		for (x = 1; x != 8; x++) {
+			QColor white(192,192,192 - x * 16);
+			w = (x * VBAR_WIDTH) / 8;
+			paint.fillRect(w,0,1,VBAR_HEIGHT / 2,white);
+		}
+		break;
+	case VOSS_TYPE_MASTER_INPUT:
+		paint.fillRect(0,0,VBAR_WIDTH,VBAR_HEIGHT / 2,black);
+
+		if (doit) {
+			error = ::ioctl(fd, VIRTUAL_OSS_GET_INPUT_PEAK, &master_peak);
+			if (error)
+				break;
+		}
+		w = convertPeak(master_peak.peak_value, master_peak.bits);
 		drawBar(paint, 0, VBAR_HEIGHT / 2, w);
 
 		for (x = 1; x != 8; x++) {
@@ -629,7 +646,7 @@ VOssMainWindow :: VOssMainWindow(QWidget *parent, const char *dsp)
 {
 	struct virtual_oss_dev_peak dev_peak;
 	struct virtual_oss_mon_peak mon_peak;
-	struct virtual_oss_output_peak out_peak;
+	struct virtual_oss_master_peak master_peak;
 
 	int x;
 	int type = 0;
@@ -674,13 +691,22 @@ VOssMainWindow :: VOssMainWindow(QWidget *parent, const char *dsp)
 			error = ::ioctl(dsp_fd, VIRTUAL_OSS_GET_OUTPUT_MON_PEAK, &mon_peak);
 			break;
 		case VOSS_TYPE_MASTER_OUTPUT:
-			memset(&out_peak, 0, sizeof(out_peak));
-			out_peak.channel = chan;
+			memset(&master_peak, 0, sizeof(master_peak));
+			master_peak.channel = chan;
 			if (num != 0) {
 				error = EINVAL;
 				break;
 			}
-			error = ::ioctl(dsp_fd, VIRTUAL_OSS_GET_OUTPUT_PEAK, &out_peak);
+			error = ::ioctl(dsp_fd, VIRTUAL_OSS_GET_OUTPUT_PEAK, &master_peak);
+			break;
+		case VOSS_TYPE_MASTER_INPUT:
+			memset(&master_peak, 0, sizeof(master_peak));
+			master_peak.channel = chan;
+			if (num != 0) {
+				error = EINVAL;
+				break;
+			}
+			error = ::ioctl(dsp_fd, VIRTUAL_OSS_GET_INPUT_PEAK, &master_peak);
 			break;
 		default:
 			error = EINVAL;

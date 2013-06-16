@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2012 Hans Petter Selasky. All rights reserved.
+ * Copyright (c) 2012-2013 Hans Petter Selasky. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -71,6 +71,7 @@ enum {
 	VOSS_TYPE_INPUT_MON,
 	VOSS_TYPE_OUTPUT_MON,
 	VOSS_TYPE_MASTER_OUTPUT,
+	VOSS_TYPE_MASTER_INPUT,
 	VOSS_TYPE_MAX,
 };
 
@@ -91,7 +92,7 @@ public:
 
 	struct virtual_oss_dev_peak dev_peak;
 	struct virtual_oss_mon_peak mon_peak;
-	struct virtual_oss_output_peak out_peak;
+	struct virtual_oss_master_peak master_peak;
 
 	int type;
 	int channel;
