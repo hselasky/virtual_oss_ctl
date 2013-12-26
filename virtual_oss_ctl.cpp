@@ -24,9 +24,18 @@
  */
 
 #include "virtual_oss_ctl.h"
+#include "virtual_oss_ctl_connect.h"
 
 #define	VBAR_HEIGHT 32
 #define	VBAR_WIDTH 128
+
+VOssGridLayout :: VOssGridLayout() : QGridLayout(this)
+{
+}
+
+VOssGridLayout :: ~VOssGridLayout()
+{
+}
 
 VOssVolumeBar :: VOssVolumeBar(VOssController *_parent, int _type, int _channel, int _number)
   : QWidget(_parent)
@@ -36,9 +45,9 @@ VOssVolumeBar :: VOssVolumeBar(VOssController *_parent, int _type, int _channel,
 	channel = _channel;
 	number = _number;
 
-	memset(&dev_peak, 0, sizeof(dev_peak));
-	dev_peak.number = _number;
-	dev_peak.channel = _channel;
+	memset(&io_peak, 0, sizeof(io_peak));
+	io_peak.number = _number;
+	io_peak.channel = _channel;
 
 	memset(&mon_peak, 0, sizeof(mon_peak));
 	mon_peak.number = _number;
@@ -49,9 +58,11 @@ VOssVolumeBar :: VOssVolumeBar(VOssController *_parent, int _type, int _channel,
 	generation = 0;
 
 	if (type == VOSS_TYPE_DEVICE) {
+		/* duplex */
 		setMinimumSize(VBAR_WIDTH, VBAR_HEIGHT);
 		setMaximumSize(VBAR_WIDTH, VBAR_HEIGHT);
 	} else {
+		/* simplex */
 		setMinimumSize(VBAR_WIDTH, VBAR_HEIGHT / 2);
 		setMaximumSize(VBAR_WIDTH, VBAR_HEIGHT / 2);
 	}
@@ -112,14 +123,14 @@ VOssVolumeBar :: paintEvent(QPaintEvent *event)
 		paint.fillRect(0,0,VBAR_WIDTH,VBAR_HEIGHT,black);
 
 		if (doit) {
-			error = ::ioctl(fd, VIRTUAL_OSS_GET_DEV_PEAK, &dev_peak);
+			error = ::ioctl(fd, VIRTUAL_OSS_GET_DEV_PEAK, &io_peak);
 			if (error)
 				break;
 		}
-		w = convertPeak(dev_peak.rx_peak_value, dev_peak.bits);
+		w = convertPeak(io_peak.rx_peak_value, io_peak.bits);
 		drawBar(paint, 0, VBAR_HEIGHT / 2, w);
 
-		w = convertPeak(dev_peak.tx_peak_value, dev_peak.bits);
+		w = convertPeak(io_peak.tx_peak_value, io_peak.bits);
 		drawBar(paint, VBAR_HEIGHT / 2, VBAR_HEIGHT / 2, w);
 
 		for (x = 1; x != 8; x++) {
@@ -128,6 +139,23 @@ VOssVolumeBar :: paintEvent(QPaintEvent *event)
 			paint.fillRect(w,0,1,VBAR_HEIGHT,white);
 		}
 		paint.fillRect(0,VBAR_HEIGHT/2,VBAR_WIDTH,1,split);
+		break;
+	case VOSS_TYPE_LOOPBACK:
+		paint.fillRect(0,0,VBAR_WIDTH,VBAR_HEIGHT / 2,black);
+
+		if (doit) {
+			error = ::ioctl(fd, VIRTUAL_OSS_GET_LOOP_PEAK, &io_peak);
+			if (error)
+				break;
+		}
+		w = convertPeak(io_peak.rx_peak_value, io_peak.bits);
+		drawBar(paint, 0, VBAR_HEIGHT / 2, w);
+
+		for (x = 1; x != 8; x++) {
+			QColor white(192,192,192 - x * 16);
+			w = (x * VBAR_WIDTH) / 8;
+			paint.fillRect(w,0,1,VBAR_HEIGHT / 2,white);
+		}
 		break;
 	case VOSS_TYPE_INPUT_MON:
 		paint.fillRect(0,0,VBAR_WIDTH,VBAR_HEIGHT / 2,black);
@@ -203,7 +231,7 @@ VOssVolumeBar :: paintEvent(QPaintEvent *event)
 }
 
 VOssController :: VOssController(VOssMainWindow *_parent, int _type, int _channel, int _number)
-  : QGroupBox(_parent)
+  : QGroupBox(_parent), connect_input_label(0), connect_output_label(0), connect_row(0)
 {
 	int x;
 
@@ -214,9 +242,9 @@ VOssController :: VOssController(VOssMainWindow *_parent, int _type, int _channe
 	channel = _channel;
 	number = _number;
 
-	memset(&dev_info, 0, sizeof(dev_info));
-	dev_info.number = _number;
-	dev_info.channel = _channel;
+	memset(&io_info, 0, sizeof(io_info));
+	io_info.number = _number;
+	io_info.channel = _channel;
 
 	memset(&mon_info, 0, sizeof(mon_info));
 	mon_info.number = _number;
@@ -304,11 +332,38 @@ VOssController :: VOssController(VOssMainWindow *_parent, int _type, int _channe
 		gl->addWidget(rx_amp_down, 0, x, 1, 1, Qt::AlignCenter);
 		gl->addWidget(tx_amp_down, 1, x, 1, 1, Qt::AlignCenter);
 		x++;
-		gl->addWidget(new QLabel(QString("I-LIM:")), 0, x, 1, 1, Qt::AlignCenter);
+		gl->addWidget(new QLabel(QString("IN-LIM:")), 0, x, 1, 1, Qt::AlignCenter);
 		x++;
 		gl->addWidget(spn_limit, 0, x, 1, 1, Qt::AlignCenter);
 		break;
-
+	case VOSS_TYPE_LOOPBACK:
+		x = 0;
+		gl->addWidget(new QLabel(QString("RX")), 0, x, 1, 1, Qt::AlignCenter);
+		x++;
+		gl->addWidget(peak_vol, 0, x, 1, 1, Qt::AlignCenter);
+		x++;
+		gl->addWidget(new QLabel(QString("MUTE:")), 0, x, 1, 1, Qt::AlignCenter);
+		x++;
+		gl->addWidget(rx_mute, 0, x, 1, 1, Qt::AlignCenter);
+		x++;
+		gl->addWidget(new QLabel(QString("POL:")), 0, x, 1, 1, Qt::AlignCenter);
+		x++;
+		gl->addWidget(rx_polarity, 0, x, 1, 1, Qt::AlignCenter);
+		x++;
+		gl->addWidget(new QLabel(QString("CHAN:")), 0, x, 1, 1, Qt::AlignCenter);
+		x++;
+		gl->addWidget(spn_rx_chn, 0, x, 1, 1, Qt::AlignCenter);
+		x++;
+		gl->addWidget(rx_amp_up, 0, x, 1, 1, Qt::AlignCenter);
+		x++;
+		gl->addWidget(lbl_rx_amp, 0, x, 1, 1, Qt::AlignCenter);
+		x++;
+		gl->addWidget(rx_amp_down, 0, x, 1, 1, Qt::AlignCenter);
+		x++;
+		gl->addWidget(new QLabel(QString("IN-LIM:")), 0, x, 1, 1, Qt::AlignCenter);
+		x++;
+		gl->addWidget(spn_limit, 0, x, 1, 1, Qt::AlignCenter);
+		break;
 	case VOSS_TYPE_INPUT_MON:
 	case VOSS_TYPE_OUTPUT_MON:
 		x = 0;
@@ -323,12 +378,12 @@ VOssController :: VOssController(VOssMainWindow *_parent, int _type, int _channe
 		gl->addWidget(rx_polarity, 0, x, 1, 1, Qt::AlignCenter);
 
 		x++;
-		gl->addWidget(new QLabel(QString("SCH:")), 0, x, 1, 1, Qt::AlignCenter);
+		gl->addWidget(new QLabel(QString("SOURCE-CH:")), 0, x, 1, 1, Qt::AlignCenter);
 		x++;
 		gl->addWidget(spn_rx_chn, 0, x, 1, 1, Qt::AlignCenter);
 
 		x++;
-		gl->addWidget(new QLabel(QString("DCH:")), 0, x, 1, 1, Qt::AlignCenter);
+		gl->addWidget(new QLabel(QString("DEST-CH:")), 0, x, 1, 1, Qt::AlignCenter);
 		x++;
 		gl->addWidget(spn_tx_chn, 0, x, 1, 1, Qt::AlignCenter);
 
@@ -344,11 +399,11 @@ VOssController :: VOssController(VOssMainWindow *_parent, int _type, int _channe
 		x = 0;
 		gl->addWidget(peak_vol, 0, x, 1, 1, Qt::AlignCenter);
 		x++;
-		gl->addWidget(new QLabel(QString("GRP:")), 0, x, 1, 1, Qt::AlignCenter);
+		gl->addWidget(new QLabel(QString("GROUP:")), 0, x, 1, 1, Qt::AlignCenter);
 		x++;
 		gl->addWidget(spn_group, 0, x, 1, 1, Qt::AlignCenter);
 		x++;
-		gl->addWidget(new QLabel(QString("O-LIM:")), 0, x, 1, 1, Qt::AlignCenter);
+		gl->addWidget(new QLabel(QString("OUT-LIM:")), 0, x, 1, 1, Qt::AlignCenter);
 		x++;
 		gl->addWidget(spn_limit, 0, x, 1, 1, Qt::AlignCenter);
 		break;
@@ -376,15 +431,16 @@ VOssController :: set_desc(const char *desc)
 	if (desc != NULL && desc[0]) {
 		switch (type) {
 		case VOSS_TYPE_DEVICE:
+		case VOSS_TYPE_LOOPBACK:
 		case VOSS_TYPE_MASTER_OUTPUT:
 		case VOSS_TYPE_MASTER_INPUT:
 			snprintf(buf, sizeof(buf),
-			    "%s - channel %d", desc, channel);
+			    "%s - Ch%d", desc, channel);
 			break;
 		case VOSS_TYPE_INPUT_MON:
 		case VOSS_TYPE_OUTPUT_MON:
 			snprintf(buf, sizeof(buf),
-			    "%s - number %d", desc, number);
+			    "%s - Ch%d", desc, number);
 			break;
 		default:
 			snprintf(buf, sizeof(buf),
@@ -440,15 +496,22 @@ VOssController :: set_config(void)
 
 	switch (type) {
 	case VOSS_TYPE_DEVICE:
-		dev_info.rx_mute = (rx_mute->checkState() == Qt::Checked);
-		dev_info.tx_mute = (tx_mute->checkState() == Qt::Checked);
-		dev_info.rx_pol = (rx_polarity->checkState() == Qt::Checked);
-		dev_info.tx_pol = (tx_polarity->checkState() == Qt::Checked);
-		dev_info.rx_amp = rx_amp;
-		dev_info.tx_amp = tx_amp;
-		dev_info.rx_chan = spn_rx_chn->value();
-		dev_info.tx_chan = spn_tx_chn->value();
-		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_SET_DEV_INFO, &dev_info);
+		io_info.rx_mute = (rx_mute->checkState() == Qt::Checked);
+		io_info.tx_mute = (tx_mute->checkState() == Qt::Checked);
+		io_info.rx_pol = (rx_polarity->checkState() == Qt::Checked);
+		io_info.tx_pol = (tx_polarity->checkState() == Qt::Checked);
+		io_info.rx_amp = rx_amp;
+		io_info.tx_amp = tx_amp;
+		io_info.rx_chan = spn_rx_chn->value();
+		io_info.tx_chan = spn_tx_chn->value();
+		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_SET_DEV_INFO, &io_info);
+		break;
+	case VOSS_TYPE_LOOPBACK:
+		io_info.rx_mute = (rx_mute->checkState() == Qt::Checked);
+		io_info.rx_pol = (rx_polarity->checkState() == Qt::Checked);
+		io_info.rx_amp = rx_amp;
+		io_info.rx_chan = spn_rx_chn->value();
+		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_SET_LOOP_INFO, &io_info);
 		break;
 	case VOSS_TYPE_INPUT_MON:
 		mon_info.mute = (rx_mute->checkState() == Qt::Checked);
@@ -470,6 +533,8 @@ VOssController :: set_config(void)
 		error = EINVAL;
 		break;
 	}
+
+	parent->vconnect->update();
 }
 
 void
@@ -480,12 +545,20 @@ VOssController :: watchdog(void)
 	switch (type) {
 	int error;
 	case VOSS_TYPE_DEVICE:
-		memset(&dev_limit, 0, sizeof(dev_limit));
-		dev_limit.number = number;
-		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_GET_DEV_LIMIT, &dev_limit);
+		memset(&io_limit, 0, sizeof(io_limit));
+		io_limit.number = number;
+		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_GET_DEV_LIMIT, &io_limit);
 		if (error != 0)
 			break;
-		spn_limit->setValue(dev_limit.limit);
+		spn_limit->setValue(io_limit.limit);
+		break;
+	case VOSS_TYPE_LOOPBACK:
+		memset(&io_limit, 0, sizeof(io_limit));
+		io_limit.number = number;
+		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_GET_LOOP_LIMIT, &io_limit);
+		if (error != 0)
+			break;
+		spn_limit->setValue(io_limit.limit);
 		break;
 	case VOSS_TYPE_MASTER_OUTPUT:
 		memset(&out_chn_grp, 0, sizeof(out_chn_grp));
@@ -514,18 +587,28 @@ VOssController :: get_config(void)
 
 	switch (type) {
 	case VOSS_TYPE_DEVICE:
-		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_GET_DEV_INFO, &dev_info);
+		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_GET_DEV_INFO, &io_info);
 		if (error)
 			break;
-		rx_mute->setCheckState(dev_info.rx_mute ? Qt::Checked : Qt::Unchecked);
-		tx_mute->setCheckState(dev_info.tx_mute ? Qt::Checked : Qt::Unchecked);
-		rx_polarity->setCheckState(dev_info.rx_pol ? Qt::Checked : Qt::Unchecked);
-		tx_polarity->setCheckState(dev_info.tx_pol ? Qt::Checked : Qt::Unchecked);
-		set_rx_amp(dev_info.rx_amp);
-		set_tx_amp(dev_info.tx_amp);
-		spn_rx_chn->setValue(dev_info.rx_chan);
-		spn_tx_chn->setValue(dev_info.tx_chan);
-		set_desc(dev_info.name);
+		rx_mute->setCheckState(io_info.rx_mute ? Qt::Checked : Qt::Unchecked);
+		tx_mute->setCheckState(io_info.tx_mute ? Qt::Checked : Qt::Unchecked);
+		rx_polarity->setCheckState(io_info.rx_pol ? Qt::Checked : Qt::Unchecked);
+		tx_polarity->setCheckState(io_info.tx_pol ? Qt::Checked : Qt::Unchecked);
+		set_rx_amp(io_info.rx_amp);
+		set_tx_amp(io_info.tx_amp);
+		spn_rx_chn->setValue(io_info.rx_chan);
+		spn_tx_chn->setValue(io_info.tx_chan);
+		set_desc(io_info.name);
+		break;
+	case VOSS_TYPE_LOOPBACK:
+		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_GET_LOOP_INFO, &io_info);
+		if (error)
+			break;
+		rx_mute->setCheckState(io_info.rx_mute ? Qt::Checked : Qt::Unchecked);
+		rx_polarity->setCheckState(io_info.rx_pol ? Qt::Checked : Qt::Unchecked);
+		set_rx_amp(io_info.rx_amp);
+		spn_rx_chn->setValue(io_info.rx_chan);
+		set_desc(io_info.name);
 		break;
 	case VOSS_TYPE_INPUT_MON:
 		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_GET_INPUT_MON_INFO, &mon_info);
@@ -640,20 +723,25 @@ VOssController :: handle_spn_lim(int value)
 		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_SET_OUTPUT_LIMIT, &out_limit);
 		break;
 	case VOSS_TYPE_DEVICE:
-		memset(&dev_limit, 0, sizeof(dev_limit));
-		dev_limit.number = number;
-		dev_limit.limit = value;
-		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_SET_DEV_LIMIT, &dev_limit);
+		memset(&io_limit, 0, sizeof(io_limit));
+		io_limit.number = number;
+		io_limit.limit = value;
+		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_SET_DEV_LIMIT, &io_limit);
+		break;
+	case VOSS_TYPE_LOOPBACK:
+		memset(&io_limit, 0, sizeof(io_limit));
+		io_limit.number = number;
+		io_limit.limit = value;
+		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_SET_LOOP_LIMIT, &io_limit);
 		break;
 	default:
 		break;
 	}
 }
 
-VOssMainWindow :: VOssMainWindow(QWidget *parent, const char *dsp)
-  : QWidget(parent)
+VOssMainWindow :: VOssMainWindow(const char *dsp)
 {
-	struct virtual_oss_dev_peak dev_peak;
+	struct virtual_oss_io_peak io_peak;
 	struct virtual_oss_mon_peak mon_peak;
 	struct virtual_oss_master_peak master_peak;
 
@@ -665,21 +753,25 @@ VOssMainWindow :: VOssMainWindow(QWidget *parent, const char *dsp)
 
 	generation = 0;
 
-	setMinimumSize(128,128);
-
 	dsp_name = dsp;
 
 	dsp_fd = ::open(dsp, O_RDWR);
 
-	gl = new QGridLayout(this);
+	gl_ctl = new VOssGridLayout();
 
 	for (x = 0; x != MAX_VOLUME_BAR; ) {
 		switch (type) {
 		case VOSS_TYPE_DEVICE:
-			memset(&dev_peak, 0, sizeof(dev_peak));
-			dev_peak.number = num;
-			dev_peak.channel = chan;
-			error = ::ioctl(dsp_fd, VIRTUAL_OSS_GET_DEV_PEAK, &dev_peak);
+			memset(&io_peak, 0, sizeof(io_peak));
+			io_peak.number = num;
+			io_peak.channel = chan;
+			error = ::ioctl(dsp_fd, VIRTUAL_OSS_GET_DEV_PEAK, &io_peak);
+			break;
+		case VOSS_TYPE_LOOPBACK:
+			memset(&io_peak, 0, sizeof(io_peak));
+			io_peak.number = num;
+			io_peak.channel = chan;
+			error = ::ioctl(dsp_fd, VIRTUAL_OSS_GET_LOOP_PEAK, &io_peak);
 			break;
 		case VOSS_TYPE_INPUT_MON:
 			memset(&mon_peak, 0, sizeof(mon_peak));
@@ -734,7 +826,7 @@ VOssMainWindow :: VOssMainWindow(QWidget *parent, const char *dsp)
 			continue;
 		}
 		vb[x] = new VOssController(this, type, chan, num);
-		gl->addWidget(vb[x], x, 0, 1, 1);
+		gl_ctl->addWidget(vb[x], x, 0, 1, 1);
 		chan++;
 		x++;
 	}
@@ -742,8 +834,18 @@ VOssMainWindow :: VOssMainWindow(QWidget *parent, const char *dsp)
 	for (; x != MAX_VOLUME_BAR; x++)
 		vb[x] = 0;
 
+	vconnect = new VOssConnect(this);
+
 	watchdog = new QTimer(this);
 	connect(watchdog, SIGNAL(timeout()), this, SLOT(handle_watchdog()));
+
+	gl_main = new VOssGridLayout();
+	gl_main->addWidget(vconnect,0,0,1,1);
+	gl_main->addWidget(gl_ctl,1,0,1,1);
+
+	setWindowTitle(QString("Virtual Oss Control"));
+	setWindowIcon(QIcon(QString(":/virtual_oss_ctl.png")));
+	setWidget(gl_main);
 
 	watchdog->start(100);
 }
@@ -810,15 +912,9 @@ main(int argc, char **argv)
 	if (ctldevice == NULL)
 		usage();
 
-	VOssMainWindow mw(0, ctldevice);
+	VOssMainWindow mw(ctldevice);
 
-	QScrollArea *psa = new QScrollArea();
-
-	psa->setWidget(&mw);
-	psa->setWindowTitle(QString("Virtual Oss Control"));
-	psa->setWindowIcon(QIcon(QString(":/virtual_oss_ctl.png")));
-	psa->show();
-	psa->setMinimumWidth(mw.width() + psa->verticalScrollBar()->width() + 4);
+	mw.show();
 
 	return (app.exec());
 }

@@ -43,6 +43,7 @@
 #include <QGridLayout>
 #include <QScrollBar>
 #include <QScrollArea>
+#include <QStackedWidget>
 #include <QTabWidget>
 #include <QLabel>
 #include <QTimer>
@@ -60,6 +61,7 @@
 #include <QIcon>
 #include <QMessageBox>
 #include <QDir>
+#include <QLineEdit>
 
 #include "virtual_oss.h"
 
@@ -68,6 +70,7 @@
 
 enum {
 	VOSS_TYPE_DEVICE,
+	VOSS_TYPE_LOOPBACK,
 	VOSS_TYPE_INPUT_MON,
 	VOSS_TYPE_OUTPUT_MON,
 	VOSS_TYPE_MASTER_OUTPUT,
@@ -75,8 +78,17 @@ enum {
 	VOSS_TYPE_MAX,
 };
 
-class VOssMainWindow;
+class VOssButton;
+class VOssConnect;
 class VOssController;
+class VOssMainWindow;
+
+class VOssGridLayout : public QWidget, public QGridLayout
+{
+public:
+	VOssGridLayout();
+	~VOssGridLayout();
+};
 
 class VOssVolumeBar : public QWidget
 {
@@ -90,7 +102,7 @@ public:
 
 	VOssController *parent;
 
-	struct virtual_oss_dev_peak dev_peak;
+	struct virtual_oss_io_peak io_peak;
 	struct virtual_oss_mon_peak mon_peak;
 	struct virtual_oss_master_peak master_peak;
 
@@ -134,6 +146,11 @@ public:
 	QPushButton *tx_amp_up;
 	QPushButton *tx_amp_down;
 
+	QLineEdit *connect_input_label;
+	QLineEdit *connect_output_label;
+
+	uint32_t connect_row;
+
 	QSpinBox *spn_group;
 	QSpinBox *spn_limit;
 	QSpinBox *spn_rx_chn;
@@ -147,11 +164,11 @@ public:
 	int rx_amp;
 	int tx_amp;
 
-	struct virtual_oss_dev_info dev_info;
+	struct virtual_oss_io_info io_info;
 	struct virtual_oss_mon_info mon_info;
 	struct virtual_oss_output_limit out_limit;
 	struct virtual_oss_output_chn_grp out_chn_grp;
-	struct virtual_oss_dev_limit dev_limit;
+	struct virtual_oss_io_limit io_limit;
 
 public slots:
 	void handle_mute(int);
@@ -166,17 +183,21 @@ public slots:
 	void handle_spn_lim(int);
 };
 
-class VOssMainWindow : public QWidget
+class VOssMainWindow : public QScrollArea
 {
 	Q_OBJECT;
 
 public:
-	VOssMainWindow(QWidget *parent = 0, const char *dsp = 0);
+	VOssMainWindow(const char *dsp = 0);
 	~VOssMainWindow();
 
-	QGridLayout *gl;
+	VOssGridLayout *gl_ctl;
+
+	VOssGridLayout *gl_main;
 
 	VOssController *vb[MAX_VOLUME_BAR];
+
+	VOssConnect *vconnect;
 
 	QTimer *watchdog;
 
@@ -185,7 +206,6 @@ public:
 	int generation;
 
 public slots:
-
 	void handle_watchdog(void);
 };
 
