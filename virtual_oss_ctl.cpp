@@ -110,7 +110,7 @@ VOssAudioDelayLocator :: VOssAudioDelayLocator(VOssMainWindow *_parent)
 	gl->addWidget(but_signal_down,0,3,1,1);
 	gl->addWidget(spn_channel_in,0,4,1,1);
 	gl->addWidget(spn_channel_out,0,5,1,1);
-	gl->addWidget(lbl_status,0,6,1,1);
+	gl->addWidget(lbl_status,1,0,1,6);
 
 	read_state();
 
@@ -261,13 +261,11 @@ VOssRecordStatus :: VOssRecordStatus(VOssMainWindow *_parent)
 
 	setTitle(tr("Recording status"));
 
-	lbl_status = new QLabel();
 	but_start = new QPushButton(tr("START"));
-	but_stop = new QPushButton(tr("START"));
+	but_stop = new QPushButton(tr("STOP"));
 
 	gl->addWidget(but_start,0,0,1,1);
 	gl->addWidget(but_stop,0,1,1,1);
-	gl->addWidget(lbl_status,0,2,1,1);
 
 	read_state();
 
@@ -291,10 +289,13 @@ VOssRecordStatus :: read_state()
 	if (error)
 		return;
 
-	if (value)
-		lbl_status->setText(tr("Recording"));
-	else
-		lbl_status->setText(tr("Stopped"));
+	if (value) {
+		but_start->setEnabled(0);
+		but_stop->setEnabled(1);
+	} else {
+		but_start->setEnabled(1);
+		but_stop->setEnabled(0);
+	}
 }
 
 void
@@ -308,6 +309,8 @@ VOssRecordStatus :: handle_start()
 	error = ::ioctl(fd, VIRTUAL_OSS_SET_RECORDING, &value);
 	if (error)
 		return;
+
+	read_state();
 }
 
 void
@@ -321,6 +324,8 @@ VOssRecordStatus :: handle_stop()
 	error = ::ioctl(fd, VIRTUAL_OSS_SET_RECORDING, &value);
 	if (error)
 		return;
+
+	read_state();
 }
 
 static int
@@ -529,8 +534,10 @@ VOssController :: VOssController(VOssMainWindow *_parent, int _type, int _channe
 	spn_limit->setRange(0, 63);
 	spn_rx_chn = new QSpinBox();
 	spn_rx_chn->setRange(0, 63);
+	spn_rx_chn->setPrefix(tr("SrcCh "));
 	spn_tx_chn = new QSpinBox();
 	spn_tx_chn->setRange(0, 63);
+	spn_tx_chn->setPrefix(tr("DstCh "));
 	spn_rx_dly = new QSpinBox();
 
 	get_config();
@@ -570,9 +577,6 @@ VOssController :: VOssController(VOssMainWindow *_parent, int _type, int _channe
 		x++;
 		gl->addWidget(rx_polarity, 0, x, 1, 1, Qt::AlignCenter);
 		gl->addWidget(tx_polarity, 1, x, 1, 1, Qt::AlignCenter);
-		x++;
-		gl->addWidget(new QLabel(QString("CHAN:")), 0, x, 1, 1, Qt::AlignCenter);
-		gl->addWidget(new QLabel(QString("CHAN:")), 1, x, 1, 1, Qt::AlignCenter);
 		x++;
 		gl->addWidget(spn_rx_chn, 0, x, 1, 1, Qt::AlignCenter);
 		gl->addWidget(spn_tx_chn, 1, x, 1, 1, Qt::AlignCenter);
@@ -640,12 +644,8 @@ VOssController :: VOssController(VOssMainWindow *_parent, int _type, int _channe
 		gl->addWidget(rx_polarity, 0, x, 1, 1, Qt::AlignCenter);
 
 		x++;
-		gl->addWidget(new QLabel(QString("SOURCE-CH:")), 0, x, 1, 1, Qt::AlignCenter);
-		x++;
 		gl->addWidget(spn_rx_chn, 0, x, 1, 1, Qt::AlignCenter);
 
-		x++;
-		gl->addWidget(new QLabel(QString("DEST-CH:")), 0, x, 1, 1, Qt::AlignCenter);
 		x++;
 		gl->addWidget(spn_tx_chn, 0, x, 1, 1, Qt::AlignCenter);
 

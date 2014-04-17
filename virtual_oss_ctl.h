@@ -158,8 +158,6 @@ public:
 
 	QGridLayout *gl;
 
-	QLabel *lbl_status;
-
 	QPushButton *but_start;
 	QPushButton *but_stop;
 
