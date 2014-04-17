@@ -133,7 +133,7 @@ VOssAudioDelayLocator :: read_state()
 	struct virtual_oss_audio_delay_locator ad;
 	int fd = parent->dsp_fd;
 	int error;
-	char status[64];
+	char status[128];
 
 	error = ::ioctl(fd, VIRTUAL_OSS_GET_AUDIO_DELAY_LOCATOR, &ad);
 	if (error)
@@ -143,8 +143,8 @@ VOssAudioDelayLocator :: read_state()
 	spn_channel_out->setValue(ad.channel_output);
 
 	snprintf(status, sizeof(status),
-	    "%s - VOL:%d - Delay:%d samples",
-	    ad.locator_enabled ? "Enabled" : "Disabled",
+	    "Delay locatyor is %s. Output volume level is %d. Measured audio delay is %d samples.",
+	    ad.locator_enabled ? "enabled" : "disabled",
 	    (int)ad.signal_output_level,
 	    (int)ad.signal_input_delay);
 
@@ -169,13 +169,13 @@ VOssAudioDelayLocator :: handle_signal_up()
 	int fd = parent->dsp_fd;
 	int error;
 
-	error = ::ioctl(fd, VIRTUAL_OSS_GET_AUDIO_DELAY_LOCATOR);
+	error = ::ioctl(fd, VIRTUAL_OSS_GET_AUDIO_DELAY_LOCATOR, &ad);
 	if (error)
 		return;
 
 	ad.signal_output_level++;
 
-	error = ::ioctl(fd, VIRTUAL_OSS_SET_AUDIO_DELAY_LOCATOR);
+	error = ::ioctl(fd, VIRTUAL_OSS_SET_AUDIO_DELAY_LOCATOR, &ad);
 	if (error)
 		return;
 }
@@ -187,13 +187,13 @@ VOssAudioDelayLocator :: handle_signal_down()
 	int fd = parent->dsp_fd;
 	int error;
 
-	error = ::ioctl(fd, VIRTUAL_OSS_GET_AUDIO_DELAY_LOCATOR);
+	error = ::ioctl(fd, VIRTUAL_OSS_GET_AUDIO_DELAY_LOCATOR, &ad);
 	if (error)
 		return;
 
 	ad.signal_output_level--;
 
-	error = ::ioctl(fd, VIRTUAL_OSS_SET_AUDIO_DELAY_LOCATOR);
+	error = ::ioctl(fd, VIRTUAL_OSS_SET_AUDIO_DELAY_LOCATOR, &ad);
 	if (error)
 		return;
 }
@@ -205,13 +205,13 @@ VOssAudioDelayLocator :: handle_channel_in()
 	int fd = parent->dsp_fd;
 	int error;
 
-	error = ::ioctl(fd, VIRTUAL_OSS_GET_AUDIO_DELAY_LOCATOR);
+	error = ::ioctl(fd, VIRTUAL_OSS_GET_AUDIO_DELAY_LOCATOR, &ad);
 	if (error)
 		return;
 
 	ad.channel_input = spn_channel_in->value();
 
-	error = ::ioctl(fd, VIRTUAL_OSS_SET_AUDIO_DELAY_LOCATOR);
+	error = ::ioctl(fd, VIRTUAL_OSS_SET_AUDIO_DELAY_LOCATOR, &ad);
 	if (error)
 		return;
 }
@@ -223,13 +223,13 @@ VOssAudioDelayLocator :: handle_channel_out()
 	int fd = parent->dsp_fd;
 	int error;
 
-	error = ::ioctl(fd, VIRTUAL_OSS_GET_AUDIO_DELAY_LOCATOR);
+	error = ::ioctl(fd, VIRTUAL_OSS_GET_AUDIO_DELAY_LOCATOR, &ad);
 	if (error)
 		return;
 
 	ad.channel_output = spn_channel_out->value();
 
-	error = ::ioctl(fd, VIRTUAL_OSS_SET_AUDIO_DELAY_LOCATOR);
+	error = ::ioctl(fd, VIRTUAL_OSS_SET_AUDIO_DELAY_LOCATOR, &ad);
 	if (error)
 		return;
 }
@@ -241,13 +241,13 @@ VOssAudioDelayLocator :: handle_enable_disable()
 	int fd = parent->dsp_fd;
 	int error;
 
-	error = ::ioctl(fd, VIRTUAL_OSS_GET_AUDIO_DELAY_LOCATOR);
+	error = ::ioctl(fd, VIRTUAL_OSS_GET_AUDIO_DELAY_LOCATOR, &ad);
 	if (error)
 		return;
 
 	ad.locator_enabled = ad.locator_enabled ? 0 : 1;
 
-	error = ::ioctl(fd, VIRTUAL_OSS_SET_AUDIO_DELAY_LOCATOR);
+	error = ::ioctl(fd, VIRTUAL_OSS_SET_AUDIO_DELAY_LOCATOR, &ad);
 	if (error)
 		return;
 }
