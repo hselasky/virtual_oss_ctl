@@ -73,6 +73,183 @@ VOssVolumeBar :: ~VOssVolumeBar()
 
 }
 
+VOssAudioDelayLocator :: VOssAudioDelayLocator(VOssMainWindow *_parent)
+  : QWidget(_parent)
+{
+	struct virtual_oss_audio_delay_locator ad;
+	int fd = _parent->dsp_fd;
+	int error;
+
+	parent = _parent;
+
+	gl = new QGridLayout(this);
+
+	lbl_status = new QLabel();
+	but_reset = new QPushButton(tr("Reset"));
+	but_enable_disable = new QPushButton(tr("ON/OFF"));
+	but_signal_up = new QPushButton(tr("VOL+"));
+	but_signal_down = new QPushButton(tr("VOL-"));
+
+	spn_channel_in = new QSpinBox();
+	spn_channel_in->setPrefix(QString("InCh "));
+
+	spn_channel_out = new QSpinBox();
+	spn_channel_out->setPrefix(QString("OutCh "));
+
+	error = ::ioctl(fd, VIRTUAL_OSS_GET_AUDIO_DELAY_LOCATOR, &ad);
+	if (error == 0) {
+		spn_channel_in->setRange(0, ad.channel_last);
+		spn_channel_out->setRange(0, ad.channel_last);
+	}
+
+	gl->addWidget(but_enable_disable,0,0,1,1);
+	gl->addWidget(but_reset,0,1,1,1);
+	gl->addWidget(but_signal_up,0,2,1,1);
+	gl->addWidget(but_signal_down,0,3,1,1);
+	gl->addWidget(spn_channel_in,0,4,1,1);
+	gl->addWidget(spn_channel_out,0,5,1,1);
+	gl->addWidget(lbl_status,0,6,1,1);
+
+	read_state();
+
+	connect(but_reset, SIGNAL(released()), this, SLOT(handle_reset()));
+	connect(but_enable_disable, SIGNAL(released()), this, SLOT(handle_changes()));
+	connect(but_signal_up, SIGNAL(released()), this, SLOT(handle_signal_up()));
+	connect(but_signal_down, SIGNAL(released()), this, SLOT(handle_signal_down()));
+	connect(spn_channel_in, SIGNAL(valueChanged(int)), this, SLOT(handle_channel_in()));
+	connect(spn_channel_out, SIGNAL(valueChanged(int)), this, SLOT(handle_channel_out()));
+}
+
+VOssAudioDelayLocator :: ~VOssAudioDelayLocator()
+{
+
+}
+
+void
+VOssAudioDelayLocator :: read_state()
+{
+	struct virtual_oss_audio_delay_locator ad;
+	int fd = parent->dsp_fd;
+	int error;
+	char status[64];
+
+	error = ::ioctl(fd, VIRTUAL_OSS_GET_AUDIO_DELAY_LOCATOR, &ad);
+	if (error)
+		return;
+
+	spn_channel_in->setValue(ad.channel_input);
+	spn_channel_out->setValue(ad.channel_output);
+
+	snprintf(status, sizeof(status),
+	    "%s - VOL:%d - Delay:%d samples",
+	    ad.locator_enabled ? "Enabled" : "Disabled",
+	    (int)ad.signal_output_level,
+	    (int)ad.signal_input_delay);
+
+	lbl_status->setText(QString(status));
+}
+
+void
+VOssAudioDelayLocator :: handle_reset()
+{
+	int fd = parent->dsp_fd;
+	int error;
+
+	error = ::ioctl(fd, VIRTUAL_OSS_RST_AUDIO_DELAY_LOCATOR);
+	if (error)
+		return;
+}
+
+void
+VOssAudioDelayLocator :: handle_signal_up()
+{
+	struct virtual_oss_audio_delay_locator ad;
+	int fd = parent->dsp_fd;
+	int error;
+
+	error = ::ioctl(fd, VIRTUAL_OSS_GET_AUDIO_DELAY_LOCATOR);
+	if (error)
+		return;
+
+	ad.signal_output_level++;
+
+	error = ::ioctl(fd, VIRTUAL_OSS_SET_AUDIO_DELAY_LOCATOR);
+	if (error)
+		return;
+}
+
+void
+VOssAudioDelayLocator :: handle_signal_down()
+{
+	struct virtual_oss_audio_delay_locator ad;
+	int fd = parent->dsp_fd;
+	int error;
+
+	error = ::ioctl(fd, VIRTUAL_OSS_GET_AUDIO_DELAY_LOCATOR);
+	if (error)
+		return;
+
+	ad.signal_output_level--;
+
+	error = ::ioctl(fd, VIRTUAL_OSS_SET_AUDIO_DELAY_LOCATOR);
+	if (error)
+		return;
+}
+
+void
+VOssAudioDelayLocator :: handle_channel_in()
+{
+	struct virtual_oss_audio_delay_locator ad;
+	int fd = parent->dsp_fd;
+	int error;
+
+	error = ::ioctl(fd, VIRTUAL_OSS_GET_AUDIO_DELAY_LOCATOR);
+	if (error)
+		return;
+
+	ad.channel_input = spn_channel_in->value();
+
+	error = ::ioctl(fd, VIRTUAL_OSS_SET_AUDIO_DELAY_LOCATOR);
+	if (error)
+		return;
+}
+
+void
+VOssAudioDelayLocator :: handle_channel_out()
+{
+	struct virtual_oss_audio_delay_locator ad;
+	int fd = parent->dsp_fd;
+	int error;
+
+	error = ::ioctl(fd, VIRTUAL_OSS_GET_AUDIO_DELAY_LOCATOR);
+	if (error)
+		return;
+
+	ad.channel_output = spn_channel_out->value();
+
+	error = ::ioctl(fd, VIRTUAL_OSS_SET_AUDIO_DELAY_LOCATOR);
+	if (error)
+		return;
+}
+
+void
+VOssAudioDelayLocator :: handle_enable_disable()
+{
+	struct virtual_oss_audio_delay_locator ad;
+	int fd = parent->dsp_fd;
+	int error;
+
+	error = ::ioctl(fd, VIRTUAL_OSS_GET_AUDIO_DELAY_LOCATOR);
+	if (error)
+		return;
+
+	ad.locator_enabled = ad.locator_enabled ? 0 : 1;
+
+	error = ::ioctl(fd, VIRTUAL_OSS_SET_AUDIO_DELAY_LOCATOR);
+	if (error)
+		return;
+}
+
 static int
 convertPeak(long long x, uint8_t bits)
 {
@@ -278,24 +455,28 @@ VOssController :: VOssController(VOssMainWindow *_parent, int _type, int _channe
 	spn_limit = new QSpinBox();
 	spn_limit->setRange(0, 63);
 	spn_rx_chn = new QSpinBox();
-	spn_rx_chn->setRange(0, 64);
+	spn_rx_chn->setRange(0, 63);
 	spn_tx_chn = new QSpinBox();
-	spn_tx_chn->setRange(0, 64);
+	spn_tx_chn->setRange(0, 63);
+	spn_rx_dly = new QSpinBox();
 
 	get_config();
 
-	connect(rx_mute, SIGNAL(stateChanged(int)), this, SLOT(handle_mute(int)));
-	connect(tx_mute, SIGNAL(stateChanged(int)), this, SLOT(handle_mute(int)));
-	connect(rx_polarity, SIGNAL(stateChanged(int)), this, SLOT(handle_polarity(int)));
-	connect(rx_polarity, SIGNAL(stateChanged(int)), this, SLOT(handle_polarity(int)));
+	spn_rx_dly->setRange(0, io_info.rx_delay_limit);
+
+	connect(rx_mute, SIGNAL(stateChanged(int)), this, SLOT(handle_set_config()));
+	connect(tx_mute, SIGNAL(stateChanged(int)), this, SLOT(handle_set_config()));
+	connect(rx_polarity, SIGNAL(stateChanged(int)), this, SLOT(handle_set_config()));
+	connect(rx_polarity, SIGNAL(stateChanged(int)), this, SLOT(handle_set_config()));
 	connect(rx_amp_up, SIGNAL(released()), this, SLOT(handle_rx_amp_up()));
 	connect(rx_amp_down, SIGNAL(released()), this, SLOT(handle_rx_amp_down()));
 	connect(tx_amp_up, SIGNAL(released()), this, SLOT(handle_tx_amp_up()));
 	connect(tx_amp_down, SIGNAL(released()), this, SLOT(handle_tx_amp_down()));
 	connect(spn_group, SIGNAL(valueChanged(int)), this, SLOT(handle_spn_grp(int)));
 	connect(spn_limit, SIGNAL(valueChanged(int)), this, SLOT(handle_spn_lim(int)));
-	connect(spn_rx_chn, SIGNAL(valueChanged(int)), this, SLOT(handle_spn_a(int)));
-	connect(spn_tx_chn, SIGNAL(valueChanged(int)), this, SLOT(handle_spn_b(int)));
+	connect(spn_rx_chn, SIGNAL(valueChanged(int)), this, SLOT(handle_set_config()));
+	connect(spn_tx_chn, SIGNAL(valueChanged(int)), this, SLOT(handle_set_config()));
+	connect(spn_rx_dly, SIGNAL(valueChanged(int)), this, SLOT(handle_set_config()));
 
 	switch (type) {
 	case VOSS_TYPE_DEVICE:
@@ -335,6 +516,10 @@ VOssController :: VOssController(VOssMainWindow *_parent, int _type, int _channe
 		gl->addWidget(new QLabel(QString("IN-LIM:")), 0, x, 1, 1, Qt::AlignCenter);
 		x++;
 		gl->addWidget(spn_limit, 0, x, 1, 1, Qt::AlignCenter);
+		x++;
+		gl->addWidget(new QLabel(QString("DELAY:")), 0, x, 1, 1, Qt::AlignCenter);
+		x++;
+		gl->addWidget(spn_rx_dly, 0, x, 1, 1, Qt::AlignCenter);
 		break;
 	case VOSS_TYPE_LOOPBACK:
 		x = 0;
@@ -363,6 +548,10 @@ VOssController :: VOssController(VOssMainWindow *_parent, int _type, int _channe
 		gl->addWidget(new QLabel(QString("IN-LIM:")), 0, x, 1, 1, Qt::AlignCenter);
 		x++;
 		gl->addWidget(spn_limit, 0, x, 1, 1, Qt::AlignCenter);
+		x++;
+		gl->addWidget(new QLabel(QString("DELAY:")), 0, x, 1, 1, Qt::AlignCenter);
+		x++;
+		gl->addWidget(spn_rx_dly, 0, x, 1, 1, Qt::AlignCenter);
 		break;
 	case VOSS_TYPE_INPUT_MON:
 	case VOSS_TYPE_OUTPUT_MON:
@@ -490,7 +679,7 @@ VOssController :: set_tx_amp(int value)
 }
 
 void
-VOssController :: set_config(void)
+VOssController :: handle_set_config(void)
 {
 	int error;
 
@@ -504,6 +693,7 @@ VOssController :: set_config(void)
 		io_info.tx_amp = tx_amp;
 		io_info.rx_chan = spn_rx_chn->value();
 		io_info.tx_chan = spn_tx_chn->value();
+		io_info.rx_delay = spn_rx_dly->value();
 		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_SET_DEV_INFO, &io_info);
 		break;
 	case VOSS_TYPE_LOOPBACK:
@@ -511,6 +701,7 @@ VOssController :: set_config(void)
 		io_info.rx_pol = (rx_polarity->checkState() == Qt::Checked);
 		io_info.rx_amp = rx_amp;
 		io_info.rx_chan = spn_rx_chn->value();
+		io_info.rx_delay = spn_rx_dly->value();
 		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_SET_LOOP_INFO, &io_info);
 		break;
 	case VOSS_TYPE_INPUT_MON:
@@ -598,6 +789,7 @@ VOssController :: get_config(void)
 		set_tx_amp(io_info.tx_amp);
 		spn_rx_chn->setValue(io_info.rx_chan);
 		spn_tx_chn->setValue(io_info.tx_chan);
+		spn_rx_dly->setValue(io_info.rx_delay);
 		set_desc(io_info.name);
 		break;
 	case VOSS_TYPE_LOOPBACK:
@@ -608,6 +800,7 @@ VOssController :: get_config(void)
 		rx_polarity->setCheckState(io_info.rx_pol ? Qt::Checked : Qt::Unchecked);
 		set_rx_amp(io_info.rx_amp);
 		spn_rx_chn->setValue(io_info.rx_chan);
+		spn_rx_dly->setValue(io_info.rx_delay);
 		set_desc(io_info.name);
 		break;
 	case VOSS_TYPE_INPUT_MON:
@@ -644,55 +837,31 @@ VOssController :: get_config(void)
 }
 
 void
-VOssController :: handle_mute(int val)
-{
-	set_config();
-}
-
-void
-VOssController :: handle_polarity(int val)
-{
-	set_config();
-}
-
-void
 VOssController :: handle_rx_amp_up(void)
 {
 	set_rx_amp(rx_amp + 1);
-	set_config();
+	handle_set_config();
 }
 
 void
 VOssController :: handle_rx_amp_down(void)
 {
 	set_rx_amp(rx_amp - 1);
-	set_config();
+	handle_set_config();
 }
 
 void
 VOssController :: handle_tx_amp_up(void)
 {
 	set_tx_amp(tx_amp + 1);
-	set_config();
+	handle_set_config();
 }
 
 void
 VOssController :: handle_tx_amp_down(void)
 {
 	set_tx_amp(tx_amp - 1);
-	set_config();
-}
-
-void
-VOssController :: handle_spn_a(int)
-{
-	set_config();
-}
-
-void
-VOssController :: handle_spn_b(int)
-{
-	set_config();
+	handle_set_config();
 }
 
 void
@@ -835,6 +1004,7 @@ VOssMainWindow :: VOssMainWindow(const char *dsp)
 		vb[x] = 0;
 
 	vconnect = new VOssConnect(this);
+	vaudiodelay = new VOssAudioDelayLocator(this);
 
 	watchdog = new QTimer(this);
 	connect(watchdog, SIGNAL(timeout()), this, SLOT(handle_watchdog()));
@@ -842,6 +1012,7 @@ VOssMainWindow :: VOssMainWindow(const char *dsp)
 	gl_main = new VOssGridLayout();
 	gl_main->addWidget(vconnect,0,0,1,1);
 	gl_main->addWidget(gl_ctl,1,0,1,1);
+	gl_main->addWidget(vaudiodelay,2,0,1,1);
 
 	setWindowTitle(QString("Virtual Oss Control"));
 	setWindowIcon(QIcon(QString(":/virtual_oss_ctl.png")));
@@ -881,6 +1052,8 @@ VOssMainWindow :: handle_watchdog(void)
 			continue;
 		vb[x]->watchdog();
 	}
+
+	vaudiodelay->read_state();
 }
 
 static void

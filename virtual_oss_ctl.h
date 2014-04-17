@@ -114,6 +114,38 @@ public:
 	void paintEvent(QPaintEvent *);
 };
 
+class VOssAudioDelayLocator : public QWidget
+{
+	Q_OBJECT;
+
+public:
+	VOssAudioDelayLocator(VOssMainWindow * = 0);
+	~VOssAudioDelayLocator();
+
+	VOssMainWindow *parent;
+
+	QGridLayout *gl;
+
+	QLabel *lbl_status;
+
+	QPushButton *but_reset;
+	QPushButton *but_enable_disable;
+	QPushButton *but_signal_up;
+	QPushButton *but_signal_down;
+	QSpinBox *spn_channel_in;
+	QSpinBox *spn_channel_out;
+
+	void read_state();
+
+public slots:
+	void handle_reset();
+	void handle_signal_up();
+	void handle_signal_down();
+	void handle_enable_disable();
+	void handle_channel_in();
+	void handle_channel_out();
+};
+
 class VOssController : public QGroupBox
 {
 	Q_OBJECT;
@@ -126,7 +158,6 @@ public:
 	void set_rx_amp(int);
 	void set_tx_amp(int);
 
-	void set_config(void);
 	void get_config(void);
 
 	void watchdog(void);
@@ -155,6 +186,7 @@ public:
 	QSpinBox *spn_limit;
 	QSpinBox *spn_rx_chn;
 	QSpinBox *spn_tx_chn;
+	QSpinBox *spn_rx_dly;
 
 	VOssVolumeBar *peak_vol;
 
@@ -171,14 +203,11 @@ public:
 	struct virtual_oss_io_limit io_limit;
 
 public slots:
-	void handle_mute(int);
-	void handle_polarity(int);
 	void handle_rx_amp_up(void);
 	void handle_rx_amp_down(void);
 	void handle_tx_amp_up(void);
 	void handle_tx_amp_down(void);
-	void handle_spn_a(int);
-	void handle_spn_b(int);
+	void handle_set_config(void);
 	void handle_spn_grp(int);
 	void handle_spn_lim(int);
 };
@@ -198,6 +227,8 @@ public:
 	VOssController *vb[MAX_VOLUME_BAR];
 
 	VOssConnect *vconnect;
+
+	VOssAudioDelayLocator *vaudiodelay;
 
 	QTimer *watchdog;
 
