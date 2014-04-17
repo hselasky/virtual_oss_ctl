@@ -612,8 +612,6 @@ VOssController :: VOssController(VOssMainWindow *_parent, int _type, int _channe
 		x++;
 		gl->addWidget(rx_polarity, 0, x, 1, 1, Qt::AlignCenter);
 		x++;
-		gl->addWidget(new QLabel(QString("CHAN:")), 0, x, 1, 1, Qt::AlignCenter);
-		x++;
 		gl->addWidget(spn_rx_chn, 0, x, 1, 1, Qt::AlignCenter);
 		x++;
 		gl->addWidget(rx_amp_up, 0, x, 1, 1, Qt::AlignCenter);
