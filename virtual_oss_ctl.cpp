@@ -143,7 +143,7 @@ VOssAudioDelayLocator :: read_state()
 	spn_channel_out->setValue(ad.channel_output);
 
 	snprintf(status, sizeof(status),
-	    "Delay locatyor is %s. Output volume level is %d. Measured audio delay is %d samples.",
+	    "Delay locator is %s. Output volume level is %d. Measured audio delay is %d samples.",
 	    ad.locator_enabled ? "enabled" : "disabled",
 	    (int)ad.signal_output_level,
 	    (int)ad.signal_input_delay);
