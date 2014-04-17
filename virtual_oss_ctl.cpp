@@ -115,7 +115,7 @@ VOssAudioDelayLocator :: VOssAudioDelayLocator(VOssMainWindow *_parent)
 	read_state();
 
 	connect(but_reset, SIGNAL(released()), this, SLOT(handle_reset()));
-	connect(but_enable_disable, SIGNAL(released()), this, SLOT(handle_changes()));
+	connect(but_enable_disable, SIGNAL(released()), this, SLOT(handle_enable_disable()));
 	connect(but_signal_up, SIGNAL(released()), this, SLOT(handle_signal_up()));
 	connect(but_signal_down, SIGNAL(released()), this, SLOT(handle_signal_down()));
 	connect(spn_channel_in, SIGNAL(valueChanged(int)), this, SLOT(handle_channel_in()));
