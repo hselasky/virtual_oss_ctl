@@ -147,7 +147,7 @@ VOssAudioDelayLocator :: read_state()
 	    ad.locator_enabled ? "enabled" : "disabled",
 	    (int)ad.signal_output_level,
 	    (int)ad.signal_input_delay,
-	    (float)ad.signal_input_delay / (float)ad.signal_delay_hz);
+	    (float)1000.0 * (float)ad.signal_input_delay / (float)ad.signal_delay_hz);
 
 	lbl_status->setText(QString(status));
 }
