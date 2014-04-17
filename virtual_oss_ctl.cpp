@@ -74,7 +74,7 @@ VOssVolumeBar :: ~VOssVolumeBar()
 }
 
 VOssAudioDelayLocator :: VOssAudioDelayLocator(VOssMainWindow *_parent)
-  : QWidget(_parent)
+  : QGroupBox(_parent)
 {
 	struct virtual_oss_audio_delay_locator ad;
 	int fd = _parent->dsp_fd;
@@ -83,6 +83,8 @@ VOssAudioDelayLocator :: VOssAudioDelayLocator(VOssMainWindow *_parent)
 	parent = _parent;
 
 	gl = new QGridLayout(this);
+
+	setTitle(tr("Audio Delay Locator"));
 
 	lbl_status = new QLabel();
 	but_reset = new QPushButton(tr("Reset"));
@@ -246,6 +248,77 @@ VOssAudioDelayLocator :: handle_enable_disable()
 	ad.locator_enabled = ad.locator_enabled ? 0 : 1;
 
 	error = ::ioctl(fd, VIRTUAL_OSS_SET_AUDIO_DELAY_LOCATOR);
+	if (error)
+		return;
+}
+
+VOssRecordStatus :: VOssRecordStatus(VOssMainWindow *_parent)
+  : QGroupBox(_parent)
+{
+	parent = _parent;
+
+	gl = new QGridLayout(this);
+
+	setTitle(tr("Recording status"));
+
+	lbl_status = new QLabel();
+	but_start = new QPushButton(tr("START"));
+	but_stop = new QPushButton(tr("START"));
+
+	gl->addWidget(but_start,0,0,1,1);
+	gl->addWidget(but_stop,0,1,1,1);
+	gl->addWidget(lbl_status,0,2,1,1);
+
+	read_state();
+
+	connect(but_start, SIGNAL(released()), this, SLOT(handle_start()));
+	connect(but_stop, SIGNAL(released()), this, SLOT(handle_stop()));
+}
+
+VOssRecordStatus :: ~VOssRecordStatus()
+{
+
+}
+
+void
+VOssRecordStatus :: read_state()
+{
+	int fd = parent->dsp_fd;
+	int value;
+	int error;
+	
+	error = ::ioctl(fd, VIRTUAL_OSS_GET_RECORDING, &value);
+	if (error)
+		return;
+
+	if (value)
+		lbl_status->setText(tr("Recording"));
+	else
+		lbl_status->setText(tr("Stopped"));
+}
+
+void
+VOssRecordStatus :: handle_start()
+{
+	int fd = parent->dsp_fd;
+	int value;
+	int error;
+
+	value = 1;
+	error = ::ioctl(fd, VIRTUAL_OSS_SET_RECORDING, &value);
+	if (error)
+		return;
+}
+
+void
+VOssRecordStatus :: handle_stop()
+{
+	int fd = parent->dsp_fd;
+	int value;
+	int error;
+
+	value = 0;
+	error = ::ioctl(fd, VIRTUAL_OSS_SET_RECORDING, &value);
 	if (error)
 		return;
 }
@@ -1005,6 +1078,7 @@ VOssMainWindow :: VOssMainWindow(const char *dsp)
 
 	vconnect = new VOssConnect(this);
 	vaudiodelay = new VOssAudioDelayLocator(this);
+	vrecordstatus = new VOssRecordStatus(this);
 
 	watchdog = new QTimer(this);
 	connect(watchdog, SIGNAL(timeout()), this, SLOT(handle_watchdog()));
@@ -1013,6 +1087,7 @@ VOssMainWindow :: VOssMainWindow(const char *dsp)
 	gl_main->addWidget(vconnect,0,0,1,1);
 	gl_main->addWidget(gl_ctl,1,0,1,1);
 	gl_main->addWidget(vaudiodelay,2,0,1,1);
+	gl_main->addWidget(vrecordstatus,3,0,1,1);
 
 	setWindowTitle(QString("Virtual Oss Control"));
 	setWindowIcon(QIcon(QString(":/virtual_oss_ctl.png")));

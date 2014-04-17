@@ -114,7 +114,7 @@ public:
 	void paintEvent(QPaintEvent *);
 };
 
-class VOssAudioDelayLocator : public QWidget
+class VOssAudioDelayLocator : public QGroupBox
 {
 	Q_OBJECT;
 
@@ -144,6 +144,30 @@ public slots:
 	void handle_enable_disable();
 	void handle_channel_in();
 	void handle_channel_out();
+};
+
+class VOssRecordStatus : public QGroupBox
+{
+	Q_OBJECT;
+
+public:
+	VOssRecordStatus(VOssMainWindow * = 0);
+	~VOssRecordStatus();
+
+	VOssMainWindow *parent;
+
+	QGridLayout *gl;
+
+	QLabel *lbl_status;
+
+	QPushButton *but_start;
+	QPushButton *but_stop;
+
+	void read_state();
+
+public slots:
+	void handle_start();
+	void handle_stop();
 };
 
 class VOssController : public QGroupBox
@@ -229,6 +253,8 @@ public:
 	VOssConnect *vconnect;
 
 	VOssAudioDelayLocator *vaudiodelay;
+
+	VOssRecordStatus *vrecordstatus;
 
 	QTimer *watchdog;
 
