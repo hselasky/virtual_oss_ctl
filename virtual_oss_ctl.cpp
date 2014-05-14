@@ -57,15 +57,8 @@ VOssVolumeBar :: VOssVolumeBar(VOssController *_parent, int _type, int _channel,
 
 	generation = 0;
 
-	if (type == VOSS_TYPE_DEVICE) {
-		/* duplex */
-		setMinimumSize(VBAR_WIDTH, VBAR_HEIGHT);
-		setMaximumSize(VBAR_WIDTH, VBAR_HEIGHT);
-	} else {
-		/* simplex */
-		setMinimumSize(VBAR_WIDTH, VBAR_HEIGHT / 2);
-		setMaximumSize(VBAR_WIDTH, VBAR_HEIGHT / 2);
-	}
+	setMinimumSize(VBAR_WIDTH, VBAR_HEIGHT);
+	setMaximumSize(VBAR_WIDTH, VBAR_HEIGHT);
 }
 
 VOssVolumeBar :: ~VOssVolumeBar()
@@ -376,10 +369,12 @@ VOssVolumeBar :: paintEvent(QPaintEvent *event)
 
 	switch (type) {
 	case VOSS_TYPE_DEVICE:
+	case VOSS_TYPE_LOOPBACK:
 		paint.fillRect(0,0,VBAR_WIDTH,VBAR_HEIGHT,black);
 
 		if (doit) {
-			error = ::ioctl(fd, VIRTUAL_OSS_GET_DEV_PEAK, &io_peak);
+			error = ::ioctl(fd, (type == VOSS_TYPE_DEVICE) ?
+			    VIRTUAL_OSS_GET_DEV_PEAK : VIRTUAL_OSS_GET_LOOP_PEAK, &io_peak);
 			if (error)
 				break;
 		}
@@ -396,23 +391,7 @@ VOssVolumeBar :: paintEvent(QPaintEvent *event)
 		}
 		paint.fillRect(0,VBAR_HEIGHT/2,VBAR_WIDTH,1,split);
 		break;
-	case VOSS_TYPE_LOOPBACK:
-		paint.fillRect(0,0,VBAR_WIDTH,VBAR_HEIGHT / 2,black);
 
-		if (doit) {
-			error = ::ioctl(fd, VIRTUAL_OSS_GET_LOOP_PEAK, &io_peak);
-			if (error)
-				break;
-		}
-		w = convertPeak(io_peak.rx_peak_value, io_peak.bits);
-		drawBar(paint, 0, VBAR_HEIGHT / 2, w);
-
-		for (x = 1; x != 8; x++) {
-			QColor white(192,192,192 - x * 16);
-			w = (x * VBAR_WIDTH) / 8;
-			paint.fillRect(w,0,1,VBAR_HEIGHT / 2,white);
-		}
-		break;
 	case VOSS_TYPE_INPUT_MON:
 		paint.fillRect(0,0,VBAR_WIDTH,VBAR_HEIGHT / 2,black);
 
@@ -430,6 +409,7 @@ VOssVolumeBar :: paintEvent(QPaintEvent *event)
 			paint.fillRect(w,0,1,VBAR_HEIGHT / 2,white);
 		}
 		break;
+
 	case VOSS_TYPE_OUTPUT_MON:
 		paint.fillRect(0,0,VBAR_WIDTH,VBAR_HEIGHT / 2,black);
 
@@ -447,6 +427,7 @@ VOssVolumeBar :: paintEvent(QPaintEvent *event)
 			paint.fillRect(w,0,1,VBAR_HEIGHT / 2,white);
 		}
 		break;
+
 	case VOSS_TYPE_MASTER_OUTPUT:
 		paint.fillRect(0,0,VBAR_WIDTH,VBAR_HEIGHT / 2,black);
 
@@ -464,6 +445,7 @@ VOssVolumeBar :: paintEvent(QPaintEvent *event)
 			paint.fillRect(w,0,1,VBAR_HEIGHT / 2,white);
 		}
 		break;
+
 	case VOSS_TYPE_MASTER_INPUT:
 		paint.fillRect(0,0,VBAR_WIDTH,VBAR_HEIGHT / 2,black);
 
@@ -481,6 +463,7 @@ VOssVolumeBar :: paintEvent(QPaintEvent *event)
 			paint.fillRect(w,0,1,VBAR_HEIGHT / 2,white);
 		}
 		break;
+
 	default:
 		break;
 	}
@@ -561,6 +544,7 @@ VOssController :: VOssController(VOssMainWindow *_parent, int _type, int _channe
 
 	switch (type) {
 	case VOSS_TYPE_DEVICE:
+	case VOSS_TYPE_LOOPBACK:
 		x = 0;
 		gl->addWidget(new QLabel(QString("RX")), 0, x, 1, 1, Qt::AlignCenter);
 		gl->addWidget(new QLabel(QString("TX")), 1, x, 1, 1, Qt::AlignCenter);
@@ -599,36 +583,7 @@ VOssController :: VOssController(VOssMainWindow *_parent, int _type, int _channe
 		x++;
 		gl->addWidget(spn_rx_dly, 0, x, 1, 1, Qt::AlignCenter);
 		break;
-	case VOSS_TYPE_LOOPBACK:
-		x = 0;
-		gl->addWidget(new QLabel(QString("RX")), 0, x, 1, 1, Qt::AlignCenter);
-		x++;
-		gl->addWidget(peak_vol, 0, x, 1, 1, Qt::AlignCenter);
-		x++;
-		gl->addWidget(new QLabel(QString("MUTE:")), 0, x, 1, 1, Qt::AlignCenter);
-		x++;
-		gl->addWidget(rx_mute, 0, x, 1, 1, Qt::AlignCenter);
-		x++;
-		gl->addWidget(new QLabel(QString("POL:")), 0, x, 1, 1, Qt::AlignCenter);
-		x++;
-		gl->addWidget(rx_polarity, 0, x, 1, 1, Qt::AlignCenter);
-		x++;
-		gl->addWidget(spn_rx_chn, 0, x, 1, 1, Qt::AlignCenter);
-		x++;
-		gl->addWidget(rx_amp_up, 0, x, 1, 1, Qt::AlignCenter);
-		x++;
-		gl->addWidget(lbl_rx_amp, 0, x, 1, 1, Qt::AlignCenter);
-		x++;
-		gl->addWidget(rx_amp_down, 0, x, 1, 1, Qt::AlignCenter);
-		x++;
-		gl->addWidget(new QLabel(QString("IN-LIM:")), 0, x, 1, 1, Qt::AlignCenter);
-		x++;
-		gl->addWidget(spn_limit, 0, x, 1, 1, Qt::AlignCenter);
-		x++;
-		gl->addWidget(new QLabel(QString("DELAY:")), 0, x, 1, 1, Qt::AlignCenter);
-		x++;
-		gl->addWidget(spn_rx_dly, 0, x, 1, 1, Qt::AlignCenter);
-		break;
+
 	case VOSS_TYPE_INPUT_MON:
 	case VOSS_TYPE_OUTPUT_MON:
 		x = 0;
@@ -757,6 +712,7 @@ VOssController :: handle_set_config(void)
 
 	switch (type) {
 	case VOSS_TYPE_DEVICE:
+	case VOSS_TYPE_LOOPBACK:
 		io_info.rx_mute = (rx_mute->checkState() == Qt::Checked);
 		io_info.tx_mute = (tx_mute->checkState() == Qt::Checked);
 		io_info.rx_pol = (rx_polarity->checkState() == Qt::Checked);
@@ -766,15 +722,8 @@ VOssController :: handle_set_config(void)
 		io_info.rx_chan = spn_rx_chn->value();
 		io_info.tx_chan = spn_tx_chn->value();
 		io_info.rx_delay = spn_rx_dly->value();
-		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_SET_DEV_INFO, &io_info);
-		break;
-	case VOSS_TYPE_LOOPBACK:
-		io_info.rx_mute = (rx_mute->checkState() == Qt::Checked);
-		io_info.rx_pol = (rx_polarity->checkState() == Qt::Checked);
-		io_info.rx_amp = rx_amp;
-		io_info.rx_chan = spn_rx_chn->value();
-		io_info.rx_delay = spn_rx_dly->value();
-		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_SET_LOOP_INFO, &io_info);
+		error = ::ioctl(parent->dsp_fd, (type == VOSS_TYPE_DEVICE) ?
+		    VIRTUAL_OSS_SET_DEV_INFO : VIRTUAL_OSS_SET_LOOP_INFO, &io_info);
 		break;
 	case VOSS_TYPE_INPUT_MON:
 		mon_info.mute = (rx_mute->checkState() == Qt::Checked);
@@ -850,7 +799,9 @@ VOssController :: get_config(void)
 
 	switch (type) {
 	case VOSS_TYPE_DEVICE:
-		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_GET_DEV_INFO, &io_info);
+	case VOSS_TYPE_LOOPBACK:
+		error = ::ioctl(parent->dsp_fd, (type == VOSS_TYPE_DEVICE) ?
+		    VIRTUAL_OSS_GET_DEV_INFO : VIRTUAL_OSS_GET_LOOP_INFO, &io_info);
 		if (error)
 			break;
 		rx_mute->setCheckState(io_info.rx_mute ? Qt::Checked : Qt::Unchecked);
@@ -861,17 +812,6 @@ VOssController :: get_config(void)
 		set_tx_amp(io_info.tx_amp);
 		spn_rx_chn->setValue(io_info.rx_chan);
 		spn_tx_chn->setValue(io_info.tx_chan);
-		spn_rx_dly->setValue(io_info.rx_delay);
-		set_desc(io_info.name);
-		break;
-	case VOSS_TYPE_LOOPBACK:
-		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_GET_LOOP_INFO, &io_info);
-		if (error)
-			break;
-		rx_mute->setCheckState(io_info.rx_mute ? Qt::Checked : Qt::Unchecked);
-		rx_polarity->setCheckState(io_info.rx_pol ? Qt::Checked : Qt::Unchecked);
-		set_rx_amp(io_info.rx_amp);
-		spn_rx_chn->setValue(io_info.rx_chan);
 		spn_rx_dly->setValue(io_info.rx_delay);
 		set_desc(io_info.name);
 		break;
