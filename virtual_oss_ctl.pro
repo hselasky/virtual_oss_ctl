@@ -1,3 +1,6 @@
+isEmpty(PREFIX) {
+    PREFIX=/usr/local
+}
 TEMPLATE	= app
 CONFIG		+= qt warn_on release
 HEADERS		+= virtual_oss_ctl.h
