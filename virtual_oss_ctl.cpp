@@ -1099,9 +1099,9 @@ main(int argc, char **argv)
 	if (ctldevice == NULL)
 		usage();
 
-	VOssMainWindow mw(ctldevice);
+	VOssMainWindow *mw = new VOssMainWindow(ctldevice);
 
-	mw.show();
+	mw->show();
 
 	return (app.exec());
 }
