@@ -272,6 +272,46 @@ VOssRecordStatus :: ~VOssRecordStatus()
 
 }
 
+VOssAddOptions :: VOssAddOptions(VOssMainWindow *_parent)
+  : QGroupBox(_parent)
+{
+	parent = _parent;
+
+	memset(buffer, 0, sizeof(buffer));
+
+	gl = new QGridLayout(this);
+
+	setTitle(tr("Add Options"));
+
+	but_add = new QPushButton(tr("ADD"));
+	led_config = new QLineEdit();
+
+	gl->addWidget(led_config,0,0,1,1);
+	gl->addWidget(but_add,0,1,1,1);
+
+	connect(but_add, SIGNAL(released()), this, SLOT(handle_add()));
+}
+
+VOssAddOptions :: ~VOssAddOptions()
+{
+
+}
+
+void
+VOssAddOptions :: handle_add()
+{
+	int fd = parent->dsp_fd;
+	int error;
+
+	strlcpy(buffer, led_config->text().toLatin1().data(), sizeof(buffer));
+
+	error = ::ioctl(fd, VIRTUAL_OSS_ADD_OPTIONS, buffer);
+	if (error)
+		return;
+
+	led_config->setText(QString(buffer));
+}
+
 void
 VOssRecordStatus :: read_state()
 {
@@ -1018,6 +1058,7 @@ VOssMainWindow :: VOssMainWindow(const char *dsp)
 	vconnect = new VOssConnect(this);
 	vaudiodelay = new VOssAudioDelayLocator(this);
 	vrecordstatus = new VOssRecordStatus(this);
+	vaddoptions = new VOssAddOptions(this);
 
 	watchdog = new QTimer(this);
 	connect(watchdog, SIGNAL(timeout()), this, SLOT(handle_watchdog()));
@@ -1027,6 +1068,7 @@ VOssMainWindow :: VOssMainWindow(const char *dsp)
 	gl_main->addWidget(gl_ctl,1,0,1,1);
 	gl_main->addWidget(vaudiodelay,2,0,1,1);
 	gl_main->addWidget(vrecordstatus,3,0,1,1);
+	gl_main->addWidget(vaddoptions,4,0,1,1);
 
 	setWindowTitle(QString("Virtual Oss Control"));
 	setWindowIcon(QIcon(QString(":/virtual_oss_ctl.png")));

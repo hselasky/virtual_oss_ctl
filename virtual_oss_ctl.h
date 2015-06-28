@@ -168,6 +168,27 @@ public slots:
 	void handle_stop();
 };
 
+class VOssAddOptions : public QGroupBox
+{
+	Q_OBJECT;
+
+public:
+	VOssAddOptions(VOssMainWindow * = 0);
+	~VOssAddOptions();
+
+	VOssMainWindow *parent;
+
+	QGridLayout *gl;
+
+	QLineEdit *led_config;
+	QPushButton *but_add;
+
+	char buffer[VIRTUAL_OSS_OPTIONS_MAX];
+
+public slots:
+	void handle_add();
+};
+
 class VOssController : public QGroupBox
 {
 	Q_OBJECT;
@@ -253,6 +274,7 @@ public:
 	VOssAudioDelayLocator *vaudiodelay;
 
 	VOssRecordStatus *vrecordstatus;
+	VOssAddOptions *vaddoptions;
 
 	QTimer *watchdog;
 
