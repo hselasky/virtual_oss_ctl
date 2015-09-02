@@ -290,6 +290,7 @@ VOssAddOptions :: VOssAddOptions(VOssMainWindow *_parent)
 	gl->addWidget(but_add,0,1,1,1);
 
 	connect(but_add, SIGNAL(released()), this, SLOT(handle_add()));
+	connect(led_config, SIGNAL(returnPressed()), this, SLOT(handle_add()));
 }
 
 VOssAddOptions :: ~VOssAddOptions()
