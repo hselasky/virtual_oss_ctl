@@ -26,7 +26,7 @@
 # Makefile for virtual_oss_ctl
 #
 
-VERSION=1.0.6
+VERSION=1.1.0
 PACKAGE=virtual_oss_ctl-${VERSION}
 EXT_HEADER=../virtual_oss/virtual_oss.h
 
