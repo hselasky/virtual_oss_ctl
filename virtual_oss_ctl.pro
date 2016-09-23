@@ -12,7 +12,7 @@ RESOURCES	+= virtual_oss_ctl.qrc
 
 TARGET		= virtual_oss_ctl
 
-LIBS		+= -L$${PREFIX}/lib -lcuse4bsd
+LIBS		+= -L$${PREFIX}/lib
 INCLUDEPATH	+= $${PREFIX}/include
 
 target.path	= $${PREFIX}/bin
