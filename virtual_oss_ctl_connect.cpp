@@ -24,19 +24,20 @@
  */
 
 #include "virtual_oss_ctl_connect.h"
+#include "virtual_oss_ctl_mainwindow.h"
 
-VOssLoopConnections :: VOssLoopConnections(VOssConnect *voc)
+VOSSLoopConnections :: VOSSLoopConnections(VOSSConnect *voc)
 {
 	parent = voc;
 	setMinimumWidth(128);
 }
 
-VOssLoopConnections :: ~VOssLoopConnections()
+VOSSLoopConnections :: ~VOSSLoopConnections()
 {
 }
 
 void
-VOssLoopConnections :: drawNice(QPainter &paint, int src_flag, int src_row,
+VOSSLoopConnections :: drawNice(QPainter &paint, int src_flag, int src_row,
     int dst_flag, int dst_row, int muted, int draw_fg)
 {
 	enum { MARGIN = 16 };
@@ -84,9 +85,9 @@ VOssLoopConnections :: drawNice(QPainter &paint, int src_flag, int src_row,
 }
 
 void
-VOssLoopConnections :: paintEvent(QPaintEvent *event)
+VOSSLoopConnections :: paintEvent(QPaintEvent *event)
 {
-	VOssController *pc;
+	VOSSController *pc;
 	QPainter paint(this);
 	int w = width();
 	int h = height();
@@ -112,18 +113,18 @@ VOssLoopConnections :: paintEvent(QPaintEvent *event)
 	}
 }
 
-VOssDevConnections :: VOssDevConnections(VOssConnect *voc)
+VOSSDevConnections :: VOSSDevConnections(VOSSConnect *voc)
 {
 	parent = voc;
 	setMinimumWidth(128);
 }
 
-VOssDevConnections :: ~VOssDevConnections()
+VOSSDevConnections :: ~VOSSDevConnections()
 {
 }
 
 void
-VOssDevConnections :: drawNice(QPainter &paint, int src_flag, int src_row,
+VOSSDevConnections :: drawNice(QPainter &paint, int src_flag, int src_row,
     int dst_flag, int dst_row, int muted, int draw_fg)
 {
 	enum { MARGIN = 16 };
@@ -180,7 +181,7 @@ VOssDevConnections :: drawNice(QPainter &paint, int src_flag, int src_row,
 }
 
 int
-VOssDevConnections :: getRxRow(int which)
+VOSSDevConnections :: getRxRow(int which)
 {
 	if (which < 0 || which >= (int)parent->n_master_input)
 		return (-1);
@@ -189,7 +190,7 @@ VOssDevConnections :: getRxRow(int which)
 }
 
 int
-VOssDevConnections :: getTxRow(int which)
+VOSSDevConnections :: getTxRow(int which)
 {
 	if (which < 0 || which >= (int)parent->n_master_output)
 		return (-1);
@@ -198,9 +199,9 @@ VOssDevConnections :: getTxRow(int which)
 }
 
 void
-VOssDevConnections :: paintEvent(QPaintEvent *event)
+VOSSDevConnections :: paintEvent(QPaintEvent *event)
 {
-	VOssController *pc;
+	VOSSController *pc;
 	QPainter paint(this);
 	int w = width();
 	int h = height();
@@ -235,9 +236,9 @@ VOssDevConnections :: paintEvent(QPaintEvent *event)
 	}
 }
 
-VOssConnect :: VOssConnect(VOssMainWindow *mw)
+VOSSConnect :: VOSSConnect(VOSSMainWindow *mw)
 {
-	VOssController *pc;
+	VOSSController *pc;
 	uint32_t x;
 	uint32_t n_row = 1;
 	uint32_t n_loopback = 0;
@@ -319,10 +320,10 @@ VOssConnect :: VOssConnect(VOssMainWindow *mw)
 	if (n_row < n_loopback)
 		n_row = n_loopback;
 
-	devconn = new VOssDevConnections(this);
+	devconn = new VOSSDevConnections(this);
 	gl->addWidget(devconn, 1, 1, n_row - 1, 1);
 
-	loopconn = new VOssLoopConnections(this);
+	loopconn = new VOSSLoopConnections(this);
 	gl->addWidget(loopconn, 1, 3, n_row - 1, 1);
 
 	gl->setColumnStretch(1, 1);
@@ -332,7 +333,7 @@ VOssConnect :: VOssConnect(VOssMainWindow *mw)
 	setTitle(tr("Connection diagram"));
 }
 
-VOssConnect :: ~VOssConnect()
+VOSSConnect :: ~VOSSConnect()
 {
 
 }

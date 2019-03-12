@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2013 Hans Petter Selasky. All rights reserved.
+ * Copyright (c) 2011 Hans Petter Selasky. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,60 +23,29 @@
  * SUCH DAMAGE.
  */
 
-#ifndef _VIRTUAL_OSS_CTL_CONNECT_H_
-#define	_VIRTUAL_OSS_CTL_CONNECT_H_
+#include "virtual_oss_ctl_button.h"
 
-#include "virtual_oss_ctl.h"
-
-class VOSSConnect;
-
-class VOSSDevConnections : public QWidget
+VOSSButton :: VOSSButton(const QString &txt, int _id) :
+    QPushButton(txt)
 {
-public:
-	VOSSDevConnections(VOSSConnect *);
-	~VOSSDevConnections();
+	id = _id;
+	connect(this, SIGNAL(pressed()), this, SLOT(handle_pressed()));
+	connect(this, SIGNAL(released()), this, SLOT(handle_released()));
+}
 
-	enum {
-	  MIX_LEFT,
-	  MIX_RIGHT
-	};
-	int getTxRow(int);
-	int getRxRow(int);
-	void drawNice(QPainter &, int, int, int, int, int, int);
-	VOSSConnect *parent;
-	void paintEvent(QPaintEvent *);
-};
-
-class VOSSLoopConnections : public QWidget
+VOSSButton :: ~VOSSButton()
 {
-public:
-	VOSSLoopConnections(VOSSConnect *);
-	~VOSSLoopConnections();
 
-	enum {
-	  MIX_LEFT,
-	  MIX_RIGHT
-	};
-	void drawNice(QPainter &, int, int, int, int, int, int);
-	VOSSConnect *parent;
-	void paintEvent(QPaintEvent *);
-};
+}
 
-class VOSSConnect : public QGroupBox
+void
+VOSSButton :: handle_released()
 {
-	Q_OBJECT;
+	released(id);
+}
 
-public:
-	VOSSConnect(VOSSMainWindow *);
-	~VOSSConnect();
-
-	VOSSMainWindow *parent;
-	QGridLayout *gl;
-	VOSSDevConnections *devconn;
-	VOSSLoopConnections *loopconn;
-
-	uint32_t n_master_input;
-	uint32_t n_master_output;
-};
-
-#endif		/* _VIRTUAL_OSS_CTL_CONNECT_H_ */
+void
+VOSSButton :: handle_pressed()
+{
+	pressed(id);
+}

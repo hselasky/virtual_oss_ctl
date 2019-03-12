@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2013 Hans Petter Selasky. All rights reserved.
+ * Copyright (c) 2019 Hans Petter Selasky. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,60 +23,86 @@
  * SUCH DAMAGE.
  */
 
-#ifndef _VIRTUAL_OSS_CTL_CONNECT_H_
-#define	_VIRTUAL_OSS_CTL_CONNECT_H_
+#ifndef _VOSS_CTL_EQUALIZER_H_
+#define	_VOSS_CTL_EQUALIZER_H_
 
 #include "virtual_oss_ctl.h"
 
-class VOSSConnect;
+#define	EQ_BANDS_MAX	5
+#define	EQ_FREQ_MAX	256
+#define	EQ_GAIN_MAX	256
+#define	EQ_WIDTH_MAX	256
 
-class VOSSDevConnections : public QWidget
-{
-public:
-	VOSSDevConnections(VOSSConnect *);
-	~VOSSDevConnections();
-
-	enum {
-	  MIX_LEFT,
-	  MIX_RIGHT
-	};
-	int getTxRow(int);
-	int getRxRow(int);
-	void drawNice(QPainter &, int, int, int, int, int, int);
-	VOSSConnect *parent;
-	void paintEvent(QPaintEvent *);
+enum {
+      EQ_TYPE_LOW_OFF,
+      EQ_TYPE_LOW_PASS,
+      EQ_TYPE_HIGH_PASS,
+      EQ_TYPE_BAND_PASS,
 };
 
-class VOSSLoopConnections : public QWidget
-{
-public:
-	VOSSLoopConnections(VOSSConnect *);
-	~VOSSLoopConnections();
-
-	enum {
-	  MIX_LEFT,
-	  MIX_RIGHT
-	};
-	void drawNice(QPainter &, int, int, int, int, int, int);
-	VOSSConnect *parent;
-	void paintEvent(QPaintEvent *);
-};
-
-class VOSSConnect : public QGroupBox
+class VOSSEQBand : public QWidget
 {
 	Q_OBJECT;
-
 public:
-	VOSSConnect(VOSSMainWindow *);
-	~VOSSConnect();
+	VOSSEQBand();
+	~VOSSEQBand() {};
 
-	VOSSMainWindow *parent;
+	void generate_fir(double *out, int size, int rate);
+	void copy(VOSSEQBand *other);
+
 	QGridLayout *gl;
-	VOSSDevConnections *devconn;
-	VOSSLoopConnections *loopconn;
 
-	uint32_t n_master_input;
-	uint32_t n_master_output;
+	VOSSVolume *vfreq;
+	VOSSVolume *vgain;
+	VOSSVolume *vwidth;
+	VOSSButtonMap *mtype;
+
+signals:
+	void valueChanged();
+
+public slots:
+	void handle_update();
 };
 
-#endif		/* _VIRTUAL_OSS_CTL_CONNECT_H_ */
+class VOSSEQFreqResponse : public QWidget
+{
+public:
+	VOSSEQFreqResponse(VOSSEqualizer *_parent);
+	~VOSSEQFreqResponse() {}
+
+	VOSSEqualizer *parent;
+
+	void paintEvent(QPaintEvent *);
+	double get_amplitude(int band);
+};
+
+class VOSSEqualizer : public QWidget
+{
+	Q_OBJECT;
+public:
+	VOSSEqualizer(VOSSMainWindow *_parent, int _type, int _num, int _channel);
+	~VOSSEqualizer();
+
+	void get_filter();
+
+	int type;
+	int num;
+	int channel;
+	int sample_rate;
+
+	int filter_size;
+	double *filter_data;
+
+	QGridLayout *gl;
+	VOSSMainWindow *parent;
+	VOSSEQFreqResponse *freqres;
+	VOSSButtonMap *onoff;
+	VOSSEQBand *band[EQ_BANDS_MAX];
+
+public slots:
+	void handle_update();
+	void handle_copy();
+	void handle_paste();
+};
+
+#endif		/* _VOSS_CTL_EQUALIZER_H_ */

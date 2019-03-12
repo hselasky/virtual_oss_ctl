@@ -23,60 +23,27 @@
  * SUCH DAMAGE.
  */
 
-#ifndef _VIRTUAL_OSS_CTL_CONNECT_H_
-#define	_VIRTUAL_OSS_CTL_CONNECT_H_
+#ifndef _VOSS_CTL_GROUPBOX_H_
+#define	_VOSS_CTL_GROUPBOX_H_
 
 #include "virtual_oss_ctl.h"
 
-class VOSSConnect;
-
-class VOSSDevConnections : public QWidget
+class VOSSGroupBox : public QGroupBox, public QGridLayout
 {
 public:
-	VOSSDevConnections(VOSSConnect *);
-	~VOSSDevConnections();
+	VOSSGroupBox(const QString &title) : QGroupBox(title),
+	    QGridLayout(this) { };
+	~VOSSGroupBox() { };
+};
 
-	enum {
-	  MIX_LEFT,
-	  MIX_RIGHT
+class VOSSGroupBoxWrapper : public QGroupBox, public QGridLayout
+{
+public:
+	VOSSGroupBoxWrapper(const QString &title, QWidget *child) :
+	    QGroupBox(title), QGridLayout(this) {
+		addWidget(child, 0,0,1,1);
 	};
-	int getTxRow(int);
-	int getRxRow(int);
-	void drawNice(QPainter &, int, int, int, int, int, int);
-	VOSSConnect *parent;
-	void paintEvent(QPaintEvent *);
+	~VOSSGroupBoxWrapper() { };
 };
 
-class VOSSLoopConnections : public QWidget
-{
-public:
-	VOSSLoopConnections(VOSSConnect *);
-	~VOSSLoopConnections();
-
-	enum {
-	  MIX_LEFT,
-	  MIX_RIGHT
-	};
-	void drawNice(QPainter &, int, int, int, int, int, int);
-	VOSSConnect *parent;
-	void paintEvent(QPaintEvent *);
-};
-
-class VOSSConnect : public QGroupBox
-{
-	Q_OBJECT;
-
-public:
-	VOSSConnect(VOSSMainWindow *);
-	~VOSSConnect();
-
-	VOSSMainWindow *parent;
-	QGridLayout *gl;
-	VOSSDevConnections *devconn;
-	VOSSLoopConnections *loopconn;
-
-	uint32_t n_master_input;
-	uint32_t n_master_output;
-};
-
-#endif		/* _VIRTUAL_OSS_CTL_CONNECT_H_ */
+#endif		/* _VOSS_CTL_GROUPBOX_H_ */

@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2013 Hans Petter Selasky. All rights reserved.
+ * Copyright (c) 2011 Hans Petter Selasky. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,60 +23,28 @@
  * SUCH DAMAGE.
  */
 
-#ifndef _VIRTUAL_OSS_CTL_CONNECT_H_
-#define	_VIRTUAL_OSS_CTL_CONNECT_H_
+#ifndef _VOSS_CTL_BUTTON_H_
+#define	_VOSS_CTL_BUTTON_H_
 
 #include "virtual_oss_ctl.h"
 
-class VOSSConnect;
-
-class VOSSDevConnections : public QWidget
-{
-public:
-	VOSSDevConnections(VOSSConnect *);
-	~VOSSDevConnections();
-
-	enum {
-	  MIX_LEFT,
-	  MIX_RIGHT
-	};
-	int getTxRow(int);
-	int getRxRow(int);
-	void drawNice(QPainter &, int, int, int, int, int, int);
-	VOSSConnect *parent;
-	void paintEvent(QPaintEvent *);
-};
-
-class VOSSLoopConnections : public QWidget
-{
-public:
-	VOSSLoopConnections(VOSSConnect *);
-	~VOSSLoopConnections();
-
-	enum {
-	  MIX_LEFT,
-	  MIX_RIGHT
-	};
-	void drawNice(QPainter &, int, int, int, int, int, int);
-	VOSSConnect *parent;
-	void paintEvent(QPaintEvent *);
-};
-
-class VOSSConnect : public QGroupBox
+class VOSSButton : public QPushButton
 {
 	Q_OBJECT;
 
 public:
-	VOSSConnect(VOSSMainWindow *);
-	~VOSSConnect();
+	VOSSButton(const QString &, int _id);
+	~VOSSButton();
 
-	VOSSMainWindow *parent;
-	QGridLayout *gl;
-	VOSSDevConnections *devconn;
-	VOSSLoopConnections *loopconn;
+	int id;
 
-	uint32_t n_master_input;
-	uint32_t n_master_output;
+signals:
+	void released(int _id);
+	void pressed(int _id);
+
+public slots:
+	void handle_released();
+	void handle_pressed();
 };
 
-#endif		/* _VIRTUAL_OSS_CTL_CONNECT_H_ */
+#endif		/* _VOSS_CTL_BUTTON_H_ */
