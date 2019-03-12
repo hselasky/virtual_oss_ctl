@@ -26,7 +26,7 @@
 # Makefile for virtual_oss_ctl
 #
 
-VERSION=1.1.1
+VERSION=1.2.0
 PACKAGE=virtual_oss_ctl-${VERSION}
 EXT_HEADER=../virtual_oss/virtual_oss.h
 
@@ -36,7 +36,7 @@ all: Makefile.unix virtual_oss.h
 	make -f Makefile.unix -j2 all
 
 Makefile.unix: virtual_oss_ctl.pro
-	qmake-qt4 PREFIX=${PREFIX} -o Makefile.unix virtual_oss_ctl.pro
+	qmake PREFIX=${PREFIX} -o Makefile.unix virtual_oss_ctl.pro
 
 help:
 	@echo "Targets are: all, install, clean, package, help"
