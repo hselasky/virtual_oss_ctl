@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2012-2013 Hans Petter Selasky. All rights reserved.
+ * Copyright (c) 2012-2020 Hans Petter Selasky. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -168,8 +168,8 @@ public:
 
 	uint32_t connect_row;
 
-	QSpinBox *spn_group;
-	QSpinBox *spn_limit;
+	VOSSCompressor *compressor_edit;
+	QPushButton *compressor;
 	QSpinBox *spn_rx_chn;
 	QSpinBox *spn_tx_chn;
 	QSpinBox *spn_rx_dly;
@@ -184,9 +184,6 @@ public:
 
 	struct virtual_oss_io_info io_info;
 	struct virtual_oss_mon_info mon_info;
-	struct virtual_oss_output_limit out_limit;
-	struct virtual_oss_output_chn_grp out_chn_grp;
-	struct virtual_oss_io_limit io_limit;
 
 public slots:
 	void handle_rx_amp_up(void);
@@ -196,8 +193,7 @@ public slots:
 	void handle_tx_amp_down(void);
 	void handle_tx_eq(void);
 	void handle_set_config(void);
-	void handle_spn_grp(int);
-	void handle_spn_lim(int);
+	void handle_compressor(void);
 };
 
 class VOSSMainWindow : public QScrollArea
@@ -209,6 +205,7 @@ public:
 	~VOSSMainWindow();
 
 	VOSSEqualizer *eq_copy;
+	VOSSCompressor *compressor_copy;
 
 	VOSSGridLayout *gl_ctl;
 

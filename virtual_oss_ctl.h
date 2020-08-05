@@ -86,6 +86,7 @@ enum {
 class VOSSButton;
 class VOSSButton;
 class VOSSButtonMap;
+class VOSSCompressor;
 class VOSSConnect;
 class VOSSController;
 class VOSSEqualizer;

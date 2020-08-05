@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2012-2013 Hans Petter Selasky. All rights reserved.
+ * Copyright (c) 2012-2020 Hans Petter Selasky. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -24,6 +24,7 @@
  */
 
 #include "virtual_oss_ctl_connect.h"
+#include "virtual_oss_ctl_compressor.h"
 #include "virtual_oss_ctl_equalizer.h"
 #include "virtual_oss_ctl_gridlayout.h"
 #include "virtual_oss_ctl_mainwindow.h"
@@ -559,11 +560,7 @@ VOSSController :: VOSSController(VOSSMainWindow *_parent, int _type, int _channe
 		connect(tx_eq_show, SIGNAL(released()), this, SLOT(handle_tx_eq()));
 		break;
 	}
-	
-	spn_group = new QSpinBox();
-	spn_group->setRange(0, 63);
-	spn_limit = new QSpinBox();
-	spn_limit->setRange(0, 63);
+
 	spn_rx_chn = new QSpinBox();
 	spn_rx_chn->setRange(0, 63);
 	spn_rx_chn->setPrefix(tr("SrcCh "));
@@ -573,6 +570,28 @@ VOSSController :: VOSSController(VOSSMainWindow *_parent, int _type, int _channe
 	spn_rx_dly = new QSpinBox();
 
 	get_config();
+
+	switch (type) {
+	case VOSS_TYPE_DEVICE:
+	case VOSS_TYPE_LOOPBACK:
+	case VOSS_TYPE_MASTER_OUTPUT:
+		compressor = new QPushButton(tr("Compressor"));
+		connect(compressor, SIGNAL(released()), this, SLOT(handle_compressor()));
+
+		if (channel == 0) {
+			compressor_edit = new VOSSCompressor(parent,
+			    _type, number, channel,
+			    (_type == VOSS_TYPE_MASTER_OUTPUT) ?
+			    "Master Output" : io_info.name);
+		} else {
+			compressor_edit = 0;
+		}
+		break;
+	default:
+		compressor = 0;
+		compressor_edit = 0;
+		break;
+	}
 
 	spn_rx_dly->setRange(0, io_info.rx_delay_limit);
 
@@ -584,8 +603,6 @@ VOSSController :: VOSSController(VOSSMainWindow *_parent, int _type, int _channe
 	connect(rx_amp_down, SIGNAL(released()), this, SLOT(handle_rx_amp_down()));
 	connect(tx_amp_up, SIGNAL(released()), this, SLOT(handle_tx_amp_up()));
 	connect(tx_amp_down, SIGNAL(released()), this, SLOT(handle_tx_amp_down()));
-	connect(spn_group, SIGNAL(valueChanged(int)), this, SLOT(handle_spn_grp(int)));
-	connect(spn_limit, SIGNAL(valueChanged(int)), this, SLOT(handle_spn_lim(int)));
 	connect(spn_rx_chn, SIGNAL(valueChanged(int)), this, SLOT(handle_set_config()));
 	connect(spn_tx_chn, SIGNAL(valueChanged(int)), this, SLOT(handle_set_config()));
 	connect(spn_rx_dly, SIGNAL(valueChanged(int)), this, SLOT(handle_set_config()));
@@ -623,9 +640,7 @@ VOSSController :: VOSSController(VOSSMainWindow *_parent, int _type, int _channe
 		gl->addWidget(rx_amp_down, 0, x, 1, 1, Qt::AlignCenter);
 		gl->addWidget(tx_amp_down, 1, x, 1, 1, Qt::AlignCenter);
 		x++;
-		gl->addWidget(new QLabel(QString("IN-LIM:")), 0, x, 1, 1, Qt::AlignCenter);
-		x++;
-		gl->addWidget(spn_limit, 0, x, 1, 1, Qt::AlignCenter);
+		gl->addWidget(compressor, 0, x, 1, 1, Qt::AlignCenter);
 		x++;
 		gl->addWidget(rx_eq_show, 0, x, 1, 1, Qt::AlignCenter);
 		gl->addWidget(tx_eq_show, 1, x, 1, 1, Qt::AlignCenter);
@@ -666,13 +681,7 @@ VOSSController :: VOSSController(VOSSMainWindow *_parent, int _type, int _channe
 		x = 0;
 		gl->addWidget(peak_vol, 0, x, 1, 1, Qt::AlignCenter);
 		x++;
-		gl->addWidget(new QLabel(QString("GROUP:")), 0, x, 1, 1, Qt::AlignCenter);
-		x++;
-		gl->addWidget(spn_group, 0, x, 1, 1, Qt::AlignCenter);
-		x++;
-		gl->addWidget(new QLabel(QString("OUT-LIM:")), 0, x, 1, 1, Qt::AlignCenter);
-		x++;
-		gl->addWidget(spn_limit, 0, x, 1, 1, Qt::AlignCenter);
+		gl->addWidget(compressor, 0, x, 1, 1, Qt::AlignCenter);
 		break;
 
 	case VOSS_TYPE_MASTER_INPUT:
@@ -806,42 +815,8 @@ VOSSController :: watchdog(void)
 {
 	peak_vol->repaint();
 
-	switch (type) {
-	int error;
-	case VOSS_TYPE_DEVICE:
-		memset(&io_limit, 0, sizeof(io_limit));
-		io_limit.number = number;
-		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_GET_DEV_LIMIT, &io_limit);
-		if (error != 0)
-			break;
-		spn_limit->setValue(io_limit.limit);
-		break;
-	case VOSS_TYPE_LOOPBACK:
-		memset(&io_limit, 0, sizeof(io_limit));
-		io_limit.number = number;
-		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_GET_LOOP_LIMIT, &io_limit);
-		if (error != 0)
-			break;
-		spn_limit->setValue(io_limit.limit);
-		break;
-	case VOSS_TYPE_MASTER_OUTPUT:
-		memset(&out_chn_grp, 0, sizeof(out_chn_grp));
-		out_chn_grp.channel = channel;
-		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_GET_OUTPUT_CHN_GRP, &out_chn_grp);
-		if (error != 0)
-			break;
-		spn_group->setValue(out_chn_grp.group);
-
-		memset(&out_limit, 0, sizeof(out_limit));
-		out_limit.group = out_chn_grp.group;
-		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_GET_OUTPUT_LIMIT, &out_limit);
-		if (error != 0)
-			break;
-		spn_limit->setValue(out_limit.limit);
-		break;
-	default:
-		break;
-	}
+	if (compressor_edit != 0)
+		compressor_edit->gain_update();
 }
 
 void
@@ -941,46 +916,18 @@ VOSSController :: handle_tx_eq(void)
 }
 
 void
-VOSSController :: handle_spn_grp(int value)
+VOSSController :: handle_compressor(void)
 {
-	switch (type) {
-	int error;
-	case VOSS_TYPE_MASTER_OUTPUT:
-		memset(&out_chn_grp, 0, sizeof(out_chn_grp));
-		out_chn_grp.channel = channel;
-		out_chn_grp.group = value;
-		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_SET_OUTPUT_CHN_GRP, &out_chn_grp);
-		break;
-	default:
-		break;
-	}
-}
+	VOSSController **vb = parent->vb;
+	int x;
 
-void
-VOSSController :: handle_spn_lim(int value)
-{
-	switch (type) {
-	int error;
-	case VOSS_TYPE_MASTER_OUTPUT:
-		memset(&out_limit, 0, sizeof(out_limit));
-		out_limit.group = spn_group->value();
-		out_limit.limit = value;
-		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_SET_OUTPUT_LIMIT, &out_limit);
-		break;
-	case VOSS_TYPE_DEVICE:
-		memset(&io_limit, 0, sizeof(io_limit));
-		io_limit.number = number;
-		io_limit.limit = value;
-		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_SET_DEV_LIMIT, &io_limit);
-		break;
-	case VOSS_TYPE_LOOPBACK:
-		memset(&io_limit, 0, sizeof(io_limit));
-		io_limit.number = number;
-		io_limit.limit = value;
-		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_SET_LOOP_LIMIT, &io_limit);
-		break;
-	default:
-		break;
+	for (x = 0; x != MAX_VOLUME_BAR; x++) {
+		if (vb[x] == NULL)
+			continue;
+		if (vb[x]->type == type &&
+		    vb[x]->number == number &&
+		    vb[x]->channel == 0)
+			vb[x]->compressor_edit->show();
 	}
 }
 
@@ -1005,6 +952,7 @@ VOSSMainWindow :: VOSSMainWindow(const char *dsp)
 	gl_ctl = new VOSSGridLayout();
 
 	eq_copy = 0;
+	compressor_copy = 0;
 
 	for (x = 0; x != MAX_VOLUME_BAR; ) {
 		switch (type) {

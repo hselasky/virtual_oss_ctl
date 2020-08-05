@@ -6,6 +6,7 @@ QT		+= core gui widgets
 CONFIG		+= qt warn_on release
 
 HEADERS		+= virtual_oss_ctl.h
+HEADERS		+= virtual_oss_ctl_compressor.h
 HEADERS		+= virtual_oss_ctl_connect.h
 HEADERS         += virtual_oss_ctl_button.h
 HEADERS         += virtual_oss_ctl_buttonmap.h
@@ -16,6 +17,7 @@ HEADERS         += virtual_oss_ctl_mainwindow.h
 HEADERS         += virtual_oss_ctl_volume.h
 
 SOURCES		+= virtual_oss_ctl.cpp
+SOURCES		+= virtual_oss_ctl_compressor.cpp
 SOURCES		+= virtual_oss_ctl_connect.cpp
 SOURCES         += virtual_oss_ctl_button.cpp
 SOURCES         += virtual_oss_ctl_buttonmap.cpp
