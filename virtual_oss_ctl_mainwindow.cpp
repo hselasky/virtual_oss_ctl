@@ -679,7 +679,7 @@ VOSSController :: VOSSController(VOSSMainWindow *_parent, int _type, int _channe
 
 	case VOSS_TYPE_MASTER_OUTPUT:
 		x = 0;
-		gl->addWidget(peak_vol, 0, x, 1, 1, Qt::AlignCenter);
+		gl->addWidget(peak_vol, 0, x, 1, 1, Qt::AlignLeft);
 		x++;
 		gl->addWidget(compressor, 0, x, 1, 1, Qt::AlignCenter);
 		break;
