@@ -558,6 +558,17 @@ VOSSController :: VOSSController(VOSSMainWindow *_parent, int _type, int _channe
 			tx_eq_show->setDisabled(1);
 		connect(rx_eq_show, SIGNAL(released()), this, SLOT(handle_rx_eq()));
 		connect(tx_eq_show, SIGNAL(released()), this, SLOT(handle_tx_eq()));
+
+		spn_rx_dly = new QSpinBox();
+		spn_rx_dly->setSuffix(QString(" samples"));
+		connect(spn_rx_dly, SIGNAL(valueChanged(int)), this, SLOT(handle_set_config()));
+		break;
+	default:
+		rx_eq_show = 0;
+		tx_eq_show = 0;
+		rx_eq = 0;
+		tx_eq = 0;
+		spn_rx_dly = 0;
 		break;
 	}
 
@@ -567,7 +578,6 @@ VOSSController :: VOSSController(VOSSMainWindow *_parent, int _type, int _channe
 	spn_tx_chn = new QSpinBox();
 	spn_tx_chn->setRange(0, 63);
 	spn_tx_chn->setPrefix(tr("DstCh "));
-	spn_rx_dly = new QSpinBox();
 
 	get_config();
 
@@ -593,8 +603,6 @@ VOSSController :: VOSSController(VOSSMainWindow *_parent, int _type, int _channe
 		break;
 	}
 
-	spn_rx_dly->setRange(0, io_info.rx_delay_limit);
-
 	connect(rx_mute, SIGNAL(stateChanged(int)), this, SLOT(handle_set_config()));
 	connect(tx_mute, SIGNAL(stateChanged(int)), this, SLOT(handle_set_config()));
 	connect(rx_polarity, SIGNAL(stateChanged(int)), this, SLOT(handle_set_config()));
@@ -605,7 +613,6 @@ VOSSController :: VOSSController(VOSSMainWindow *_parent, int _type, int _channe
 	connect(tx_amp_down, SIGNAL(released()), this, SLOT(handle_tx_amp_down()));
 	connect(spn_rx_chn, SIGNAL(valueChanged(int)), this, SLOT(handle_set_config()));
 	connect(spn_tx_chn, SIGNAL(valueChanged(int)), this, SLOT(handle_set_config()));
-	connect(spn_rx_dly, SIGNAL(valueChanged(int)), this, SLOT(handle_set_config()));
 
 	switch (type) {
 	case VOSS_TYPE_DEVICE:
@@ -839,6 +846,7 @@ VOSSController :: get_config(void)
 		set_tx_amp(io_info.tx_amp);
 		spn_rx_chn->setValue(io_info.rx_chan);
 		spn_tx_chn->setValue(io_info.tx_chan);
+		spn_rx_dly->setRange(0, io_info.rx_delay_limit);
 		spn_rx_dly->setValue(io_info.rx_delay);
 		set_desc(io_info.name);
 		break;
