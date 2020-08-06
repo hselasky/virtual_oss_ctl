@@ -104,7 +104,7 @@ VOSSCompressor :: get_values(void)
 
 	switch (type) {
 	int error;
-	case VOSS_TYPE_MASTER_OUTPUT:
+	case VOSS_TYPE_MAIN_OUTPUT:
 		memset(&out_limit, 0, sizeof(out_limit));
 		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_GET_OUTPUT_LIMIT, &out_limit);
 		if (error == 0)
@@ -161,7 +161,7 @@ VOSSCompressor :: gain_update(void)
 
 	switch (type) {
 	int error;
-	case VOSS_TYPE_MASTER_OUTPUT:
+	case VOSS_TYPE_MAIN_OUTPUT:
 		memset(&out_limit, 0, sizeof(out_limit));
 		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_GET_OUTPUT_LIMIT, &out_limit);
 		if (error == 0)
@@ -204,7 +204,7 @@ VOSSCompressor :: handle_update()
 
 	switch (type) {
 	int error;
-	case VOSS_TYPE_MASTER_OUTPUT:
+	case VOSS_TYPE_MAIN_OUTPUT:
 		get_param(&out_limit);
 		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_SET_OUTPUT_LIMIT, &out_limit);
 		break;

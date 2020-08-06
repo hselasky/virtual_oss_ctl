@@ -259,14 +259,14 @@ VOSSConnect :: VOSSConnect(VOSSMainWindow *mw)
 
 	for (x = 0; x != MAX_VOLUME_BAR && ((pc = parent->vb[x]) != 0); x++) {
 		switch(pc->type) {
-		case VOSS_TYPE_MASTER_INPUT:
+		case VOSS_TYPE_MAIN_INPUT:
 			pc->connect_row = n_row + n_master_input;
 
 			pc->connect_input_label = new QLineEdit(QString("Channel %1").arg(pc->channel));
 			gl->addWidget(pc->connect_input_label, pc->connect_row, 0, 1, 1);
 			n_master_input++;
 			break;
-		case VOSS_TYPE_MASTER_OUTPUT:
+		case VOSS_TYPE_MAIN_OUTPUT:
 			pc->connect_row = n_row + n_master_output;
 
 			pc->connect_output_label = new QLineEdit(QString("Channel %1").arg(pc->channel));

@@ -464,7 +464,7 @@ VOSSVolumeBar :: paintEvent(QPaintEvent *event)
 		}
 		break;
 
-	case VOSS_TYPE_MASTER_OUTPUT:
+	case VOSS_TYPE_MAIN_OUTPUT:
 		paint.fillRect(0,0,VBAR_WIDTH,VBAR_HEIGHT / 2,black);
 
 		if (doit) {
@@ -482,7 +482,7 @@ VOSSVolumeBar :: paintEvent(QPaintEvent *event)
 		}
 		break;
 
-	case VOSS_TYPE_MASTER_INPUT:
+	case VOSS_TYPE_MAIN_INPUT:
 		paint.fillRect(0,0,VBAR_WIDTH,VBAR_HEIGHT / 2,black);
 
 		if (doit) {
@@ -584,15 +584,15 @@ VOSSController :: VOSSController(VOSSMainWindow *_parent, int _type, int _channe
 	switch (type) {
 	case VOSS_TYPE_DEVICE:
 	case VOSS_TYPE_LOOPBACK:
-	case VOSS_TYPE_MASTER_OUTPUT:
+	case VOSS_TYPE_MAIN_OUTPUT:
 		compressor = new QPushButton(tr("Compressor"));
 		connect(compressor, SIGNAL(released()), this, SLOT(handle_compressor()));
 
 		if (channel == 0) {
 			compressor_edit = new VOSSCompressor(parent,
 			    _type, number, channel,
-			    (_type == VOSS_TYPE_MASTER_OUTPUT) ?
-			    "Master Output" : io_info.name);
+			    (_type == VOSS_TYPE_MAIN_OUTPUT) ?
+			    "Main Output" : io_info.name);
 		} else {
 			compressor_edit = 0;
 		}
@@ -684,14 +684,14 @@ VOSSController :: VOSSController(VOSSMainWindow *_parent, int _type, int _channe
 		gl->addWidget(rx_amp_down, 0, x, 1, 1, Qt::AlignCenter);
 		break;
 
-	case VOSS_TYPE_MASTER_OUTPUT:
+	case VOSS_TYPE_MAIN_OUTPUT:
 		x = 0;
 		gl->addWidget(peak_vol, 0, x, 1, 1, Qt::AlignLeft);
 		x++;
 		gl->addWidget(compressor, 0, x, 1, 1, Qt::AlignCenter);
 		break;
 
-	case VOSS_TYPE_MASTER_INPUT:
+	case VOSS_TYPE_MAIN_INPUT:
 		x = 0;
 		gl->addWidget(peak_vol, 0, x, 1, 1, Qt::AlignLeft);
 		break;
@@ -716,8 +716,8 @@ VOSSController :: set_desc(const char *desc)
 		switch (type) {
 		case VOSS_TYPE_DEVICE:
 		case VOSS_TYPE_LOOPBACK:
-		case VOSS_TYPE_MASTER_OUTPUT:
-		case VOSS_TYPE_MASTER_INPUT:
+		case VOSS_TYPE_MAIN_OUTPUT:
+		case VOSS_TYPE_MAIN_INPUT:
 			snprintf(buf, sizeof(buf),
 			    "%s - Ch%d", desc, channel);
 			break;
@@ -872,11 +872,11 @@ VOSSController :: get_config(void)
 		spn_tx_chn->setValue(mon_info.dst_chan);
 		set_desc("Output Monitor");
 		break;
-	case VOSS_TYPE_MASTER_OUTPUT:
-		set_desc("Master Output");
+	case VOSS_TYPE_MAIN_OUTPUT:
+		set_desc("Main Output");
 		break;
-	case VOSS_TYPE_MASTER_INPUT:
-		set_desc("Master Input");
+	case VOSS_TYPE_MAIN_INPUT:
+		set_desc("Main Input");
 		break;
 	default:
 		break;
@@ -994,7 +994,7 @@ VOSSMainWindow :: VOSSMainWindow(const char *dsp)
 			}
 			error = ::ioctl(dsp_fd, VIRTUAL_OSS_GET_OUTPUT_MON_PEAK, &mon_peak);
 			break;
-		case VOSS_TYPE_MASTER_OUTPUT:
+		case VOSS_TYPE_MAIN_OUTPUT:
 			memset(&master_peak, 0, sizeof(master_peak));
 			master_peak.channel = chan;
 			if (num != 0) {
@@ -1003,7 +1003,7 @@ VOSSMainWindow :: VOSSMainWindow(const char *dsp)
 			}
 			error = ::ioctl(dsp_fd, VIRTUAL_OSS_GET_OUTPUT_PEAK, &master_peak);
 			break;
-		case VOSS_TYPE_MASTER_INPUT:
+		case VOSS_TYPE_MAIN_INPUT:
 			memset(&master_peak, 0, sizeof(master_peak));
 			master_peak.channel = chan;
 			if (num != 0) {
