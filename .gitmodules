@@ -1,0 +1,3 @@
+[submodule "virtual_oss"]
+	path = virtual_oss
+	url = https://github.com/hselasky/virtual_oss

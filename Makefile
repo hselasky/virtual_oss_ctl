@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2012 Hans Petter Selasky. All rights reserved.
+# Copyright (c) 2012-2020 Hans Petter Selasky. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -26,25 +26,16 @@
 # Makefile for virtual_oss_ctl
 #
 
-VERSION=1.2.2
-PACKAGE=virtual_oss_ctl-${VERSION}
-EXT_HEADER=../virtual_oss/virtual_oss.h
-
 PREFIX?=/usr/local
 
-all: Makefile.unix virtual_oss.h
+all: Makefile.unix
 	make -f Makefile.unix -j2 all
 
 Makefile.unix: virtual_oss_ctl.pro
 	qmake PREFIX=${PREFIX} -o Makefile.unix virtual_oss_ctl.pro
 
 help:
-	@echo "Targets are: all, install, clean, package, help"
-
-.if exists(${EXT_HEADER})
-virtual_oss.h: ${EXT_HEADER}
-	cp -v ${.ALLSRC} ${.TARGET}
-.endif
+	@echo "Targets are: all, install, clean, help"
 
 install: Makefile.unix
 	make -f Makefile.unix install
@@ -52,13 +43,3 @@ install: Makefile.unix
 clean: Makefile.unix
 	make -f Makefile.unix clean
 
-package: clean virtual_oss.h
-	tar -cvf ${PACKAGE}.tar \
-		Makefile virtual_oss*.pro virtual_oss*.qrc \
-		virtual_oss*.cpp virtual_oss*.h virtual_oss*.png \
-		virtual_oss*.desktop
-	rm -rf ${PACKAGE}
-	mkdir ${PACKAGE}
-	tar -xvf ${PACKAGE}.tar -C ${PACKAGE}
-	rm -rf ${PACKAGE}.tar
-	tar -jcvf ${PACKAGE}.tar.bz2 --uid 0 --gid 0 ${PACKAGE}

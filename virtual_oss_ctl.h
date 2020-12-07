@@ -63,7 +63,7 @@
 #include <QDir>
 #include <QLineEdit>
 
-#include "virtual_oss.h"
+#include "virtual_oss/virtual_oss.h"
 
 #define	MAX_VOLUME_BAR 128
 #define	MAX_MASTER_CHN 64
