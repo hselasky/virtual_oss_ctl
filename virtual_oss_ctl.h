@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2012-2013 Hans Petter Selasky. All rights reserved.
+ * Copyright (c) 2012-2021 Hans Petter Selasky. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -73,6 +73,7 @@ enum {
 	VOSS_TYPE_LOOPBACK,
 	VOSS_TYPE_INPUT_MON,
 	VOSS_TYPE_OUTPUT_MON,
+	VOSS_TYPE_LOCAL_MON,
 	VOSS_TYPE_MAIN_OUTPUT,
 	VOSS_TYPE_MAIN_INPUT,
 	VOSS_TYPE_MAX,

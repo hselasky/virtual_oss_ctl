@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2012-2020 Hans Petter Selasky. All rights reserved.
+ * Copyright (c) 2012-2021 Hans Petter Selasky. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -464,6 +464,24 @@ VOSSVolumeBar :: paintEvent(QPaintEvent *event)
 		}
 		break;
 
+	case VOSS_TYPE_LOCAL_MON:
+		paint.fillRect(0,0,VBAR_WIDTH,VBAR_HEIGHT / 2,black);
+
+		if (doit) {
+			error = ::ioctl(fd, VIRTUAL_OSS_GET_LOCAL_MON_PEAK, &mon_peak);
+			if (error)
+				break;
+		}
+		w = convertPeak(mon_peak.peak_value, mon_peak.bits);
+		drawBar(paint, 0, VBAR_HEIGHT / 2, w);
+
+		for (x = 1; x != 8; x++) {
+			QColor white(192,192,192 - x * 16);
+			w = (x * VBAR_WIDTH) / 8;
+			paint.fillRect(w,0,1,VBAR_HEIGHT / 2,white);
+		}
+		break;
+
 	case VOSS_TYPE_MAIN_OUTPUT:
 		paint.fillRect(0,0,VBAR_WIDTH,VBAR_HEIGHT / 2,black);
 
@@ -659,6 +677,7 @@ VOSSController :: VOSSController(VOSSMainWindow *_parent, int _type, int _channe
 
 	case VOSS_TYPE_INPUT_MON:
 	case VOSS_TYPE_OUTPUT_MON:
+	case VOSS_TYPE_LOCAL_MON:
 		x = 0;
 		gl->addWidget(peak_vol, 0, x, 1, 1, Qt::AlignCenter);
 		x++;
@@ -723,6 +742,7 @@ VOSSController :: set_desc(const char *desc)
 			break;
 		case VOSS_TYPE_INPUT_MON:
 		case VOSS_TYPE_OUTPUT_MON:
+		case VOSS_TYPE_LOCAL_MON:
 			snprintf(buf, sizeof(buf),
 			    "%s - Ch%d", desc, number);
 			break;
@@ -809,6 +829,14 @@ VOSSController :: handle_set_config(void)
 		mon_info.dst_chan = spn_tx_chn->value();
 		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_SET_OUTPUT_MON_INFO, &mon_info);
 		break;
+	case VOSS_TYPE_LOCAL_MON:
+		mon_info.mute = (rx_mute->checkState() == Qt::Checked);
+		mon_info.pol = (rx_polarity->checkState() == Qt::Checked);
+		mon_info.amp = rx_amp;
+		mon_info.src_chan = spn_rx_chn->value();
+		mon_info.dst_chan = spn_tx_chn->value();
+		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_SET_LOCAL_MON_INFO, &mon_info);
+		break;
 	default:
 		error = EINVAL;
 		break;
@@ -871,6 +899,17 @@ VOSSController :: get_config(void)
 		spn_rx_chn->setValue(mon_info.src_chan);
 		spn_tx_chn->setValue(mon_info.dst_chan);
 		set_desc("Output Monitor");
+		break;
+	case VOSS_TYPE_LOCAL_MON:
+		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_GET_LOCAL_MON_INFO, &mon_info);
+		if (error)
+			break;
+		rx_mute->setCheckState(mon_info.mute ? Qt::Checked : Qt::Unchecked);
+		rx_polarity->setCheckState(mon_info.pol ? Qt::Checked : Qt::Unchecked);
+		set_rx_amp(mon_info.amp);
+		spn_rx_chn->setValue(mon_info.src_chan);
+		spn_tx_chn->setValue(mon_info.dst_chan);
+		set_desc("Local Monitor");
 		break;
 	case VOSS_TYPE_MAIN_OUTPUT:
 		set_desc("Main Output");
@@ -993,6 +1032,15 @@ VOSSMainWindow :: VOSSMainWindow(const char *dsp)
 				break;
 			}
 			error = ::ioctl(dsp_fd, VIRTUAL_OSS_GET_OUTPUT_MON_PEAK, &mon_peak);
+			break;
+		case VOSS_TYPE_LOCAL_MON:
+			memset(&mon_peak, 0, sizeof(mon_peak));
+			mon_peak.number = num;
+			if (chan != 0) {
+				error = EINVAL;
+				break;
+			}
+			error = ::ioctl(dsp_fd, VIRTUAL_OSS_GET_LOCAL_MON_PEAK, &mon_peak);
 			break;
 		case VOSS_TYPE_MAIN_OUTPUT:
 			memset(&master_peak, 0, sizeof(master_peak));
