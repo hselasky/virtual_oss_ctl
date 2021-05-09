@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2012 Hans Petter Selasky. All rights reserved.
+ * Copyright (c) 2012-2021 Hans Petter Selasky. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,8 +26,7 @@
 #include "virtual_oss_ctl_button.h"
 #include "virtual_oss_ctl_buttonmap.h"
 
-VOSSButtonMap :: VOSSButtonMap(const char *title, int max,
-    int width) : QGroupBox()
+VOSSButtonMap :: VOSSButtonMap(const char *title, int max, int width) : g(this)
 {
 	int x;
 	int w;
@@ -46,8 +45,6 @@ VOSSButtonMap :: VOSSButtonMap(const char *title, int max,
 
 	setTitle(QString(title));
 
-	grid = new QGridLayout(this);
-
 	for (x = 0; x != nButtons; x++) {
 
 		w = (x % width);
@@ -61,7 +58,7 @@ VOSSButtonMap :: VOSSButtonMap(const char *title, int max,
 		connect(but[x], SIGNAL(pressed(int)), this, SLOT(handle_pressed(int)));
 		connect(but[x], SIGNAL(released(int)), this, SLOT(handle_released(int)));
 
-		grid->addWidget(but[x], h, w, 1, 1,
+		g.addWidget(but[x], h, w, 1, 1,
 		    Qt::AlignHCenter | Qt::AlignVCenter);
 	}
 }
