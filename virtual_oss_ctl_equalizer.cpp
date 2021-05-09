@@ -1,5 +1,6 @@
 /*-
- * Copyright (c) 2019 Hans Petter Selasky. All rights reserved.
+ * Copyright (c) 2019 Google LLC, written by Richard Kralovic <riso@google.com>
+ * Copyright (c) 2019-2021 Hans Petter Selasky. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,7 +30,174 @@
 #include "virtual_oss_ctl_mainwindow.h"
 #include "virtual_oss_ctl_volume.h"
 
+#include <fftw3.h>
 #include <math.h>
+
+static void
+hpsjam_skip_space(const char **pp, bool newline)
+{
+	const char *ptr = *pp;
+	while (*ptr == ' ' || *ptr == '\t' || *ptr == '\r' || (*ptr == '\n' && newline))
+		ptr++;
+	*pp = ptr;
+}
+
+static bool
+hpsjam_parse_double(const char **pp, double &out)
+{
+	const char *ptr = *pp;
+	bool any = false;
+
+	out = 0;
+
+	hpsjam_skip_space(&ptr, false);
+
+	while (*ptr >= '0' && *ptr <= '9') {
+		out *= 10.0;
+		out += *ptr - '0';
+		any = true;
+		ptr++;
+	}
+
+	if (*ptr == '.') {
+		double k = 1.0 / 10.0;
+		ptr ++;
+		while (*ptr >= '0' && *ptr <= '9') {
+			out += k * (*ptr - '0');
+			k /= 10.0;
+			any = true;
+			ptr++;
+		}
+	}
+
+	*pp = ptr;
+	return (any);
+}
+
+struct equalizer {
+	double rate;
+	size_t block_size;
+	bool do_normalize;
+
+	/* (block_size * 2) elements, time domain */
+	double *fftw_time;
+
+	/* (block_size * 2) elements, half-complex, freq domain */
+	double *fftw_freq;
+
+	fftw_plan forward;
+	fftw_plan inverse;
+
+	void init(double _rate, size_t _block_size) {
+		rate = _rate;
+		block_size = _block_size;
+
+		fftw_time = new double [block_size];
+		fftw_freq = new double [block_size];
+
+		forward = fftw_plan_r2r_1d(block_size, fftw_time, fftw_freq, FFTW_R2HC, FFTW_MEASURE);
+		inverse = fftw_plan_r2r_1d(block_size, fftw_freq, fftw_time, FFTW_HC2R, FFTW_MEASURE);
+	};
+	void cleanup() {
+		fftw_destroy_plan(forward);
+		fftw_destroy_plan(inverse);
+		delete [] fftw_time;
+		delete [] fftw_freq;
+	};
+	double get_window(double x) {
+		return (0.5 + 0.5 * cos(M_PI * x / (block_size / 2))) / block_size;
+	};
+	bool load_freq_amps(const char *config) {
+		double prev_f = 0.0;
+		double prev_amp = 1.0;
+		double next_f = 0.0;
+		double next_amp = 1.0;
+		size_t i;
+
+		if (strncasecmp(config, "normalize", 4) == 0) {
+			while (*config != 0) {
+				if (*config == '\n') {
+					config++;
+					break;
+				}
+				config++;
+			}
+			do_normalize = true;
+		} else {
+			do_normalize = false;
+		}
+
+		for (i = 0; i <= (block_size / 2); ++i) {
+			const double f = (i * rate) / block_size;
+
+			while (f >= next_f) {
+				prev_f = next_f;
+				prev_amp = next_amp;
+
+				hpsjam_skip_space(&config, true);
+
+				if (*config == 0) {
+					next_f = rate;
+					next_amp = prev_amp;
+				} else {
+					if (hpsjam_parse_double(&config, next_f) &&
+					    hpsjam_parse_double(&config, next_amp)) {
+						if (next_f < prev_f)
+							return (true);
+					} else {
+						return (true);
+					}
+				}
+				if (prev_f == 0.0)
+					prev_amp = next_amp;
+			}
+			fftw_freq[i] = ((f - prev_f) / (next_f - prev_f)) * (next_amp - prev_amp) + prev_amp;
+		}
+		return (false);
+	};
+	bool load(const char *config) {
+		bool retval;
+		size_t i;
+
+		memset(fftw_freq, 0, sizeof(fftw_freq[0]) * block_size);
+
+		retval = load_freq_amps(config);
+		if (retval)
+			return (retval);
+
+		fftw_execute(inverse);
+
+		/* Multiply by symmetric window and shift */
+		for (i = 0; i != (block_size / 2); ++i) {
+			double weight = get_window(i);
+
+			fftw_time[block_size / 2 + i] = fftw_time[i] * weight;
+		}
+
+		for (i = (block_size / 2); i-- > 1; )
+			fftw_time[i] = fftw_time[block_size - i];
+
+		fftw_time[0] = 0;
+
+		fftw_execute(forward);
+
+		for (i = 0; i != block_size; i++)
+			fftw_freq[i] /= block_size;
+
+		/* Normalize FIR filter, if any */
+		if (do_normalize) {
+			double sum = 0;
+
+			for (i = 0; i < block_size; ++i)
+				sum += fabs(fftw_time[i]);
+			if (sum != 0.0) {
+				for (i = 0; i < block_size; ++i)
+					fftw_time[i] /= sum;
+			}
+		}
+		return (retval);
+	};
+};
 
 static int
 voss_get_fir_filter(int fd, int type, int num, int channel, double *data, int size)
@@ -95,161 +263,125 @@ voss_set_fir_filter(int fd, int type, int num, int channel, double *data, int si
 	}
 }
 
-VOSSEQBand :: VOSSEQBand()
+VOSSEQButtons :: VOSSEQButtons(VOSSEqualizer *_parent) :
+    parent(_parent), gl_control(this)
 {
-	gl = new QGridLayout(this);
+	setTitle(tr("Presets"));
 
-	vfreq = new VOSSVolume();
-	vfreq->setRange(1, EQ_FREQ_MAX, 1);
-	connect(vfreq, SIGNAL(valueChanged(int)), this, SLOT(handle_update()));
+	b_defaults.setText(tr("Defa&ults"));
+	b_lowpass.setText(tr("&LowPass"));
+	b_highpass.setText(tr("&HighPass"));
+	b_bandpass.setText(tr("&BandPass"));
 
-	vgain = new VOSSVolume();
-	vgain->setRange(-EQ_GAIN_MAX, EQ_GAIN_MAX, 0);
-	vgain->setValue(0);
-	connect(vgain, SIGNAL(valueChanged(int)), this, SLOT(handle_update()));
+	gl_control.addWidget(&b_defaults, 0,0);
+	gl_control.addWidget(&b_lowpass, 0,1);
+	gl_control.addWidget(&b_highpass, 1,0);
+	gl_control.addWidget(&b_bandpass, 1,1);
 
-	vwidth = new VOSSVolume();
-	vwidth->setRange(0, EQ_WIDTH_MAX, 0);
-	vwidth->setValue(0);
-	connect(vwidth, SIGNAL(valueChanged(int)), this, SLOT(handle_update()));
-
-	mtype = new VOSSButtonMap("Type\0" "OFF\0" "LP\0" "HP\0" "BP\0", 4, 2);
-	connect(mtype, SIGNAL(selectionChanged(int)), this, SLOT(handle_update()));
-
-	gl->addWidget(new VOSSGroupBoxWrapper("Freq", vfreq), 0,0,1,1);
-	gl->addWidget(new VOSSGroupBoxWrapper("Gain", vgain), 1,0,1,1);
-	gl->addWidget(new VOSSGroupBoxWrapper("Width", vwidth), 2,0,1,1);
-	gl->addWidget(mtype, 3,0,1,1);
+	connect(&b_defaults, SIGNAL(released()), this, SLOT(handle_defaults()));
+	connect(&b_lowpass, SIGNAL(released()), this, SLOT(handle_lowpass()));
+	connect(&b_highpass, SIGNAL(released()), this, SLOT(handle_highpass()));
+	connect(&b_bandpass, SIGNAL(released()), this, SLOT(handle_bandpass()));
 }
 
 void
-VOSSEQBand :: copy(VOSSEQBand *other)
+VOSSEQButtons :: handle_defaults()
 {
-	vfreq->setValue(other->vfreq->value());
-	vgain->setValue(other->vgain->value());
-	vwidth->setValue(other->vwidth->value());
-	mtype->setSelection(other->mtype->currSelection);
-}
-
-static void
-voss_ctl_basic_filter(double freq, double gain, double *factor,
-    unsigned window_size, unsigned sample_rate)
-{
-	int wh = window_size / 2;
-	int x;
-
-	freq /= (double)sample_rate;
-	freq *= (double)wh;
-
-	factor[wh] += (2.0 * freq * gain) / (double)wh;
-
-	freq *= (2.0 * M_PI) / (double)wh;
-
-	for (x = -wh+1; x < wh; x++) {
-		if (x == 0)
-			continue;
-		factor[x + wh] += gain * sin(freq * (double)(x)) / (M_PI * (double)(x));
-	}
-}
-
-static void
-voss_ctl_range_check(double &value, const double low, const double high)
-{
-	if (value < low)
-		value = low;
-	else if (value > high)
-		value = high;
-}
-
-static void
-voss_ctl_band_pass(double freq_low, double freq_high, double gain,
-    double *factor, unsigned window_size, unsigned sample_rate)
-{
-	const double high = sample_rate / 2.0;
-
-	voss_ctl_range_check(freq_low, 0, high);
-	voss_ctl_range_check(freq_high, 0, high);
-
-	/* lowpass */
-	voss_ctl_basic_filter(freq_low, gain, factor, window_size, sample_rate);
-
-	/* highpass */
-	voss_ctl_basic_filter(-freq_high, gain, factor, window_size, sample_rate);
-}
-
-static void
-voss_ctl_low_pass(double freq_low, double gain, double *factor,
-    unsigned window_size, unsigned sample_rate)
-{
-  	const double high = sample_rate / 2.0;
-
-	voss_ctl_range_check(freq_low, 0, high);
-
-	/* lowpass */
-	voss_ctl_basic_filter(freq_low, gain, factor, window_size, sample_rate);
-	voss_ctl_basic_filter(-sample_rate, gain, factor, window_size, sample_rate);
-}
-
-static void
-voss_ctl_high_pass(double freq_high, double gain, double *factor,
-    unsigned window_size, unsigned sample_rate)
-{
-	const double high = sample_rate / 2.0;
-
-	voss_ctl_range_check(freq_high, 0, high);
-
-	/* highpass */
-	voss_ctl_basic_filter(freq_high, gain, factor, window_size, sample_rate);
-	voss_ctl_basic_filter(-high, gain, factor, window_size, sample_rate);
+	parent->edit->edit.setText(QString(
+	    "norm\n"
+	    "20 1\n"
+	    "25 1\n"
+	    "31.5 1\n"
+	    "40 1\n"
+	    "50 1\n"
+	    "63 1\n"
+	    "80 1\n"
+	    "100 1\n"
+	    "125 1\n"
+	    "160 1\n"
+	    "200 1\n"
+	    "250 1\n"
+	    "315 1\n"
+	    "400 1\n"
+	    "500 1\n"
+	    "630 1\n"
+	    "800 1\n"
+	    "1000 1\n"
+	    "1250 1\n"
+	    "1600 1\n"
+	    "2000 1\n"
+	    "2500 1\n"
+	    "3150 1\n"
+	    "4000 1\n"
+	    "5000 1\n"
+	    "6300 1\n"
+	    "8000 1\n"
+	    "10000 1\n"
+	    "12500 1\n"
+	    "16000 1\n"
+	    "20000 1\n"
+     ));
 }
 
 void
-VOSSEQBand :: generate_fir(double *out, int size, int sample_rate)
+VOSSEQButtons :: handle_lowpass()
 {
-	const double rate = sample_rate / 2.0;
-	const double freq = rate * pow(2.0, vfreq->value() / (double)EQ_FREQ_MAX) - rate;
-	const double width = (rate * pow(2.0, vwidth->value() / (double)EQ_FREQ_MAX) - rate) / 2.0;
-	const double gain = pow(2.0, (16.0 * vgain->value()) / (double)EQ_GAIN_MAX);
-	
-	switch (mtype->currSelection) {
-	case EQ_TYPE_LOW_PASS:
-		voss_ctl_low_pass(freq, gain, out, size, sample_rate);
-		break;
-	case EQ_TYPE_HIGH_PASS:
-		voss_ctl_high_pass(freq, gain, out, size, sample_rate);
-		break;
-	case EQ_TYPE_BAND_PASS:
-		voss_ctl_band_pass(freq - width, freq + width, gain, out, size, sample_rate);
-		break;
-	default:
-		break;
-	}
+	parent->edit->edit.setText(QString(
+	    "norm\n"
+	    "150 1\n"
+	    "1000 0\n"
+	));
 }
 
 void
-VOSSEQBand :: handle_update()
+VOSSEQButtons :: handle_highpass()
 {
-	emit valueChanged();
+	parent->edit->edit.setText(QString(
+	    "norm\n"
+	    "150 0\n"
+	    "1000 1\n"
+	));
 }
+
+void
+VOSSEQButtons :: handle_bandpass()
+{
+	parent->edit->edit.setText(QString(
+	    "norm\n"
+	    "250 0\n"
+	    "500 1\n"
+	    "1000 1\n"
+	    "2000 0\n"
+	));
+};
 
 VOSSEQFreqResponse :: VOSSEQFreqResponse(VOSSEqualizer *_parent)
 {
 	parent = _parent;
+	setFixedSize(EQ_FREQ_MAX, 128);
 }
 
-double
-VOSSEQFreqResponse :: get_amplitude(int band)
+void
+VOSSEQFreqResponse :: get_amplitude(int band, double &freq, double &ret)
 {
-	if (parent->filter_size <= 0 || parent->sample_rate <= 0 ||
-	    parent->filter_data == 0)
-		return (1);
+	if (parent->sample_rate <= 0) {
+		freq = ret = 0;
+		return;
+	}
 
+	double maxfreq = (parent->sample_rate >= 16000.0) ? 8000.0 : (parent->sample_rate / 2.0);
+
+	freq = maxfreq * pow(2.0, band / (double)EQ_FREQ_MAX) - maxfreq;
+
+	if (parent->filter_size <= 0 || parent->filter_data == 0) {
+		ret = 0;
+		return;
+	}
+
+	double phase = 0;
 	double a_x = 0;
 	double a_y = 0;
-	double phase = 0;
-	double rate = parent->sample_rate / 2.0;
-	double freq = rate * pow(2.0, band / (double)EQ_FREQ_MAX) - rate;
-	double step = M_PI * freq / rate;
+	double step = 2.0 * M_PI * freq / (double)parent->sample_rate;
 
 	for (int x = 0; x != parent->filter_size; x++) {
 		a_x += cos(phase) * parent->filter_data[x];
@@ -257,8 +389,7 @@ VOSSEQFreqResponse :: get_amplitude(int band)
 		phase += step;
 	}
 
-	return log(sqrt(a_x * a_x + a_y * a_y));
-	
+	ret = sqrt(a_x * a_x + a_y * a_y);
 }
 
 void
@@ -268,10 +399,15 @@ VOSSEQFreqResponse :: paintEvent(QPaintEvent *)
 	int h = height();
 
 	double amp[EQ_FREQ_MAX];
+	double freq[EQ_FREQ_MAX];
 
   	QPainter paint(this);
 
-	QImage graph(EQ_FREQ_MAX, 256, QImage::Format_ARGB32);
+	QFont fnt = paint.font();
+	fnt.setPixelSize(8);
+	paint.setFont(fnt);
+
+	QImage graph(EQ_FREQ_MAX, 128, QImage::Format_ARGB32);
 
 	QColor black(0,0,0);
 	QColor grey(192,192,192);
@@ -279,9 +415,8 @@ VOSSEQFreqResponse :: paintEvent(QPaintEvent *)
 
 	graph.fill(white);
 
-	for (int x = 0; x != EQ_FREQ_MAX; x++) {
-		amp[x] = get_amplitude(x);
-	}
+	for (int x = 0; x != EQ_FREQ_MAX; x++)
+		get_amplitude(x, freq[x], amp[x]);
 
 	int y = 0;
 	int z = 0;
@@ -293,30 +428,36 @@ VOSSEQFreqResponse :: paintEvent(QPaintEvent *)
 			z = x;
 	}
 
-	if (amp[y] != 0.0) {
-		for (int x = 0; x != EQ_FREQ_MAX; x++) {
-			int a = 255.0 * (amp[x] - amp[z]) / (amp[y] - amp[z]);
-			if (a < 0)
-				a = 0;
-			else if (a > 255)
-				a = 255;
+	for (int x = 0; x != EQ_FREQ_MAX; x++) {
+		int a = 127.0 * (amp[x] - amp[z]) / (1.0 + amp[y] - amp[z]);
+		if (a < 0)
+			a = 0;
+		else if (a > 127)
+			a = 127;
 
-			a = 255 - a;
+		a = 127 - a;
 
-			graph.setPixelColor(x,a,black);
-			while (++a < 256)
-				graph.setPixelColor(x,a,grey);
-		}
+		graph.setPixelColor(x,a,black);
+		while (++a < 128)
+			graph.setPixelColor(x,a,grey);
 	}
 
 	paint.drawImage(QRect(0,0,w,h), graph);
+	paint.setPen(black);
+
+	for (int x = EQ_FREQ_MAX / 8; x != EQ_FREQ_MAX; x += EQ_FREQ_MAX / 8) {
+		if (freq[x] < 2000.0) {
+			paint.drawText(QPoint((w * x) / EQ_FREQ_MAX, h - 1),
+			       QString("%1").arg(100 * (int)(freq[x] / 100.0)));
+		} else {
+			paint.drawText(QPoint((w * x) / EQ_FREQ_MAX, h - 1),
+			       QString("%1k").arg((int)(freq[x] / 1000.0)));
+		}
+	}
 }
 
-VOSSEqualizer :: VOSSEqualizer(VOSSMainWindow *_parent, int _type, int _num, int _channel)
+VOSSEqualizer :: VOSSEqualizer(VOSSMainWindow *_parent, int _type, int _num, int _channel) : gl(this)
 {
-  	VOSSGroupBox *gb;
-	QPushButton *pb;
-
 	parent = _parent;
 	type = _type;
 	num = _num;
@@ -330,33 +471,28 @@ VOSSEqualizer :: VOSSEqualizer(VOSSMainWindow *_parent, int _type, int _num, int
 	    .arg((_type & VOSS_TYPE_RX) ? "RX" : "TX").arg(channel));
 	setWindowIcon(QIcon(QString(":/virtual_oss_ctl.png")));
 
-	gl = new QGridLayout(this);
-
-	freqres = new VOSSEQFreqResponse(this);
-	gl->addWidget(freqres, 0,2,1,EQ_BANDS_MAX - 2);
-
 	onoff = new VOSSButtonMap("Equalizer state\0" "OFF\0" "ON\0", 2, 1);
 	connect(onoff, SIGNAL(selectionChanged(int)), this, SLOT(handle_update()));
-	gl->addWidget(onoff, 0,0,1,1);
+	gl.addWidget(onoff, 0,0,1,1);
 
-	for (int x = 0; x != EQ_BANDS_MAX; x++) {
-		band[x] = new VOSSEQBand();
-		connect(band[x], SIGNAL(valueChanged()), this, SLOT(handle_update()));
-		gl->addWidget(new VOSSGroupBoxWrapper(QString("F%1").arg(x + 1), band[x]), 1,x,1,1);
-	}
+	clip = new VOSSEQClipboard(this);
+	connect(&clip->b_copy, SIGNAL(released()), this, SLOT(handle_copy()));
+	connect(&clip->b_paste, SIGNAL(released()), this, SLOT(handle_paste()));
 
-	gb = new VOSSGroupBox("Control");
-	pb = new QPushButton(tr("COPY"));
-	connect(pb, SIGNAL(released()), this, SLOT(handle_copy()));
-	gb->addWidget(pb, 0,0,1,1);
+	gl.addWidget(clip, 0,1,1,1);
 
-	pb = new QPushButton(tr("PASTE"));
-	connect(pb, SIGNAL(released()), this, SLOT(handle_paste()));
-	gb->addWidget(pb, 1,0,1,1);
+	buttons = new VOSSEQButtons(this);
+	gl.addWidget(buttons, 0,2,1,1);
 
-	gl->addWidget(gb,0,1,1,1);
+	freqres = new VOSSEQFreqResponse(this);
+	gl.addWidget(freqres, 0,3,1,1);
 
-	gl->setRowStretch(0,1);
+	edit = new VOSSEQEditor();
+	connect(&edit->b_apply, SIGNAL(released()), this, SLOT(handle_update()));
+	gl.addWidget(edit, 1,0,1,4);
+
+	gl.setRowStretch(2,1);
+	gl.setColumnStretch(4,1);
 
 	get_filter();
 }
@@ -389,12 +525,12 @@ VOSSEqualizer :: get_filter()
 		    filter_data, filter_size) != filter_size) {
 			free(filter_data);
 			filter_data = 0;
-			onoff->setSelection(0);
+			VOSS_BLOCKED(onoff,setSelection(0));
 		} else {
-			onoff->setSelection(1);
+			VOSS_BLOCKED(onoff,setSelection(1));
 		}
 	} else {
-		onoff->setSelection(0);
+		VOSS_BLOCKED(onoff,setSelection(0));
 	}
 }
 
@@ -410,9 +546,7 @@ VOSSEqualizer :: handle_paste()
 	if (parent->eq_copy == 0 || parent->eq_copy == this)
 		return;
 
-	for (int x = 0; x != EQ_BANDS_MAX; x++)
-		band[x]->copy(parent->eq_copy->band[x]);
-
+	edit->edit.setText(parent->eq_copy->edit->edit.toPlainText());
 	onoff->setSelection(parent->eq_copy->onoff->currSelection);
 }
 
@@ -426,25 +560,45 @@ VOSSEqualizer :: handle_update()
 		free(filter_data);
 		filter_data = 0;
 	} else {
-		if (filter_data == 0)
+		bool filter_alloc = (filter_data == 0);
+
+		if (filter_alloc) {
 			filter_data = (double *)malloc(sizeof(double) * filter_size);
-		memset(filter_data, 0, sizeof(double) * filter_size);
+			memset(filter_data, 0, sizeof(filter_data[0]) * filter_size);
+		}
 
-		for (int x = 0; x != EQ_BANDS_MAX; x++)
-			band[x]->generate_fir(filter_data, filter_size, sample_rate);
+		QString str = edit->edit.toPlainText().trimmed();
 
-		double sum = 0;
-		for (int x = 0; x != filter_size; x++)
-			sum += fabs(filter_data[x]);
+		if (!str.isEmpty()) {
+			QByteArray ba = str.toUtf8();
+			equalizer eq = {};
+			eq.init(sample_rate, filter_size);
 
-		if (sum != 0) {
-			for (int x = 0; x != filter_size; x++)
-				filter_data[x] /= sum;
+			if (eq.load(ba.data())) {
+				eq.cleanup();
+				if (filter_alloc) {
+					free(filter_data);
+					filter_data = 0;
+				}
+				QMessageBox::information(this, "Virtual OSS Control",
+				    tr("Invalid EQ filter specification"));
+				return;
+			} else {
+				for (int x = 0; x != filter_size; x++)
+					filter_data[x] = eq.fftw_time[x];
+			}
+			eq.cleanup();
 		} else {
-			filter_data[filter_size / 2] = 1.0;
+			if (filter_alloc) {
+				free(filter_data);
+				filter_data = 0;
+			}
+			QMessageBox::information(this, "Virtual OSS Control",
+				    tr("EQ filter specification is empty"));
+			return;
 		}
 	}
-	voss_set_fir_filter(parent->dsp_fd, type, num, channel, filter_data, filter_size);
 
+	voss_set_fir_filter(parent->dsp_fd, type, num, channel, filter_data, filter_size);
 	freqres->update();
 }

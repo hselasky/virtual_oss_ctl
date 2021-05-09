@@ -34,6 +34,8 @@ TARGET		= virtual_oss_ctl
 LIBS		+= -L$${PREFIX}/lib
 INCLUDEPATH	+= $${PREFIX}/include
 
+LIBS            += -lfftw3
+
 target.path	= $${PREFIX}/bin
 INSTALLS	+= target
 

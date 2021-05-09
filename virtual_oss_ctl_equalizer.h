@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2019 Hans Petter Selasky. All rights reserved.
+ * Copyright (c) 2019-2021 Hans Petter Selasky. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,52 +28,74 @@
 
 #include "virtual_oss_ctl.h"
 
-#define	EQ_BANDS_MAX	5
-#define	EQ_FREQ_MAX	256
-#define	EQ_GAIN_MAX	256
-#define	EQ_WIDTH_MAX	256
+#define	EQ_FREQ_MAX 256
 
-enum {
-      EQ_TYPE_LOW_OFF,
-      EQ_TYPE_LOW_PASS,
-      EQ_TYPE_HIGH_PASS,
-      EQ_TYPE_BAND_PASS,
-};
-
-class VOSSEQBand : public QWidget
+class VOSSEQButtons : public QGroupBox
 {
 	Q_OBJECT;
 public:
-	VOSSEQBand();
-	~VOSSEQBand() {};
+	VOSSEQButtons(VOSSEqualizer *);
 
-	void generate_fir(double *out, int size, int rate);
-	void copy(VOSSEQBand *other);
+	VOSSEqualizer *parent;
 
-	QGridLayout *gl;
+	QGridLayout gl_control;
 
-	VOSSVolume *vfreq;
-	VOSSVolume *vgain;
-	VOSSVolume *vwidth;
-	VOSSButtonMap *mtype;
-
-signals:
-	void valueChanged();
+	QPushButton b_defaults;
+	QPushButton b_lowpass;
+	QPushButton b_highpass;
+	QPushButton b_bandpass;
 
 public slots:
-	void handle_update();
+	void handle_defaults();
+	void handle_lowpass();
+	void handle_highpass();
+	void handle_bandpass();
 };
 
 class VOSSEQFreqResponse : public QWidget
 {
 public:
 	VOSSEQFreqResponse(VOSSEqualizer *_parent);
-	~VOSSEQFreqResponse() {}
 
 	VOSSEqualizer *parent;
 
 	void paintEvent(QPaintEvent *);
-	double get_amplitude(int band);
+	void get_amplitude(int band, double &, double &);
+};
+
+class VOSSEQEditor : public QGroupBox
+{
+public:
+	VOSSEQEditor() : gl_spec(this) {
+		edit.setTabChangesFocus(true);
+		setTitle(tr("Filter specification"));
+		b_apply.setText(tr("Apply filter"));
+		gl_spec.addWidget(&edit, 0,0,1,2);
+		gl_spec.addWidget(&b_apply, 1,1,1,1);
+	};
+	QGridLayout gl_spec;
+	QTextEdit edit;
+	QPushButton b_apply;
+};
+
+class VOSSEQClipboard : public QGroupBox
+{
+public:
+	VOSSEQClipboard(VOSSEqualizer *_parent) :
+	  parent(_parent), gl_clip(this) {
+
+		b_copy.setText(tr("COPY"));
+		b_paste.setText(tr("PASTE"));
+
+		setTitle("Clipboard");
+		gl_clip.addWidget(&b_copy, 0,0);
+		gl_clip.addWidget(&b_paste, 1,0);
+	};
+	VOSSEqualizer *parent;
+
+	QGridLayout gl_clip;
+	QPushButton b_copy;
+	QPushButton b_paste;
 };
 
 class VOSSEqualizer : public QWidget
@@ -93,11 +115,13 @@ public:
 	int filter_size;
 	double *filter_data;
 
-	QGridLayout *gl;
+	QGridLayout gl;
 	VOSSMainWindow *parent;
 	VOSSEQFreqResponse *freqres;
 	VOSSButtonMap *onoff;
-	VOSSEQBand *band[EQ_BANDS_MAX];
+	VOSSEQButtons *buttons;
+	VOSSEQEditor *edit;
+	VOSSEQClipboard *clip;
 
 public slots:
 	void handle_update();
