@@ -62,7 +62,6 @@ VOSSVolumeBar :: ~VOSSVolumeBar()
 }
 
 VOSSAudioDelayLocator :: VOSSAudioDelayLocator(VOSSMainWindow *_parent)
-  : QGroupBox(_parent)
 {
 	struct virtual_oss_audio_delay_locator ad;
 	int fd = _parent->dsp_fd;
@@ -242,7 +241,6 @@ VOSSAudioDelayLocator :: handle_enable_disable()
 }
 
 VOSSRecordStatus :: VOSSRecordStatus(VOSSMainWindow *_parent)
-  : QGroupBox(_parent)
 {
 	parent = _parent;
 
@@ -268,7 +266,6 @@ VOSSRecordStatus :: ~VOSSRecordStatus()
 }
 
 VOSSAddOptions :: VOSSAddOptions(VOSSMainWindow *_parent)
-  : QGroupBox(_parent)
 {
 	parent = _parent;
 
@@ -524,7 +521,7 @@ VOSSVolumeBar :: paintEvent(QPaintEvent *event)
 }
 
 VOSSController :: VOSSController(VOSSMainWindow *_parent, int _type, int _channel, int _number)
-  : QGroupBox(_parent), connect_input_label(0), connect_output_label(0), connect_row(0)
+  : connect_input_label(0), connect_output_label(0), connect_row(0)
 {
 	int x;
 
