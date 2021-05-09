@@ -866,16 +866,16 @@ VOSSController :: get_config(void)
 		    VIRTUAL_OSS_GET_DEV_INFO : VIRTUAL_OSS_GET_LOOP_INFO, &io_info);
 		if (error)
 			break;
-		rx_mute->setCheckState(io_info.rx_mute ? Qt::Checked : Qt::Unchecked);
-		tx_mute->setCheckState(io_info.tx_mute ? Qt::Checked : Qt::Unchecked);
-		rx_polarity->setCheckState(io_info.rx_pol ? Qt::Checked : Qt::Unchecked);
-		tx_polarity->setCheckState(io_info.tx_pol ? Qt::Checked : Qt::Unchecked);
+		VOSS_BLOCKED(rx_mute,setCheckState(io_info.rx_mute ? Qt::Checked : Qt::Unchecked));
+		VOSS_BLOCKED(tx_mute,setCheckState(io_info.tx_mute ? Qt::Checked : Qt::Unchecked));
+		VOSS_BLOCKED(rx_polarity,setCheckState(io_info.rx_pol ? Qt::Checked : Qt::Unchecked));
+		VOSS_BLOCKED(tx_polarity,setCheckState(io_info.tx_pol ? Qt::Checked : Qt::Unchecked));
 		set_rx_amp(io_info.rx_amp);
 		set_tx_amp(io_info.tx_amp);
-		spn_rx_chn->setValue(io_info.rx_chan);
-		spn_tx_chn->setValue(io_info.tx_chan);
+		VOSS_BLOCKED(spn_rx_chn,setValue(io_info.rx_chan));
+		VOSS_BLOCKED(spn_tx_chn,setValue(io_info.tx_chan));
 		spn_rx_dly->setRange(0, io_info.rx_delay_limit);
-		spn_rx_dly->setValue(io_info.rx_delay);
+		VOSS_BLOCKED(spn_rx_dly,setValue(io_info.rx_delay));
 		set_desc(io_info.name);
 		break;
 	case VOSS_TYPE_INPUT_MON:
@@ -885,19 +885,19 @@ VOSSController :: get_config(void)
 		rx_mute->setCheckState(mon_info.mute ? Qt::Checked : Qt::Unchecked);
 		rx_polarity->setCheckState(mon_info.pol ? Qt::Checked : Qt::Unchecked);
 		set_rx_amp(mon_info.amp);
-		spn_rx_chn->setValue(mon_info.src_chan);
-		spn_tx_chn->setValue(mon_info.dst_chan);
+		VOSS_BLOCKED(spn_rx_chn,setValue(mon_info.src_chan));
+		VOSS_BLOCKED(spn_tx_chn,setValue(mon_info.dst_chan));
 		set_desc("Input Monitor");
 		break;
 	case VOSS_TYPE_OUTPUT_MON:
 		error = ::ioctl(parent->dsp_fd, VIRTUAL_OSS_GET_OUTPUT_MON_INFO, &mon_info);
 		if (error)
 			break;
-		rx_mute->setCheckState(mon_info.mute ? Qt::Checked : Qt::Unchecked);
-		rx_polarity->setCheckState(mon_info.pol ? Qt::Checked : Qt::Unchecked);
+		VOSS_BLOCKED(rx_mute,setCheckState(mon_info.mute ? Qt::Checked : Qt::Unchecked));
+		VOSS_BLOCKED(rx_polarity,setCheckState(mon_info.pol ? Qt::Checked : Qt::Unchecked));
 		set_rx_amp(mon_info.amp);
-		spn_rx_chn->setValue(mon_info.src_chan);
-		spn_tx_chn->setValue(mon_info.dst_chan);
+		VOSS_BLOCKED(spn_rx_chn,setValue(mon_info.src_chan));
+		VOSS_BLOCKED(spn_tx_chn,setValue(mon_info.dst_chan));
 		set_desc("Output Monitor");
 		break;
 	case VOSS_TYPE_LOCAL_MON:
@@ -907,8 +907,8 @@ VOSSController :: get_config(void)
 		rx_mute->setCheckState(mon_info.mute ? Qt::Checked : Qt::Unchecked);
 		rx_polarity->setCheckState(mon_info.pol ? Qt::Checked : Qt::Unchecked);
 		set_rx_amp(mon_info.amp);
-		spn_rx_chn->setValue(mon_info.src_chan);
-		spn_tx_chn->setValue(mon_info.dst_chan);
+		VOSS_BLOCKED(spn_rx_chn,setValue(mon_info.src_chan));
+		VOSS_BLOCKED(spn_tx_chn,setValue(mon_info.dst_chan));
 		set_desc("Local Monitor");
 		break;
 	case VOSS_TYPE_MAIN_OUTPUT:

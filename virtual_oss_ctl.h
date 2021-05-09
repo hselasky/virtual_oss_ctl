@@ -62,6 +62,7 @@
 #include <QMessageBox>
 #include <QDir>
 #include <QLineEdit>
+#include <QTextEdit>
 
 #include "virtual_oss/virtual_oss.h"
 
@@ -83,6 +84,12 @@ enum {
 	VOSS_TYPE_RX = 256,
 	VOSS_TYPE_TX = 0,
 };
+
+#define VOSS_BLOCKED(obj, what) do {	\
+    (obj)->blockSignals(1);		\
+    (obj)->what;			\
+    (obj)->blockSignals(0);		\
+} while (0)
 
 class VOSSButton;
 class VOSSButton;
