@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2012-2021 Hans Petter Selasky. All rights reserved.
+ * Copyright (c) 2012-2022 Hans Petter Selasky
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -303,6 +303,46 @@ VOSSAddOptions :: handle_add()
 		return;
 
 	led_config->setText(QString(buffer));
+
+	parent->vsysinfo->updateInfo();
+}
+
+
+VOSSSysInfoOptions :: VOSSSysInfoOptions(VOSSMainWindow *_parent)
+{
+	parent = _parent;
+
+	gl = new QGridLayout(this);
+
+	setTitle(tr("System information"));
+
+	gl->addWidget(&lbl_status, 0,0,1,1);
+
+	updateInfo();
+}
+
+VOSSSysInfoOptions :: ~VOSSSysInfoOptions()
+{
+
+}
+
+void
+VOSSSysInfoOptions :: updateInfo()
+{
+	struct virtual_oss_system_info info;
+	int fd = parent->dsp_fd;
+	int error;
+
+	error = ::ioctl(fd, VIRTUAL_OSS_GET_SYSTEM_INFO, &info);
+	if (error)
+		return;
+
+	lbl_status.setText(QString("%1 Hz, %2 bits, %3 channels, Input: %4, Output: %5")
+			   .arg(info.sample_rate)
+			   .arg(info.sample_bits)
+			   .arg(info.sample_channels)
+			   .arg(info.rx_device_name)
+			   .arg(info.tx_device_name));
 }
 
 void
@@ -1086,6 +1126,7 @@ VOSSMainWindow :: VOSSMainWindow(const char *dsp)
 	vaudiodelay = new VOSSAudioDelayLocator(this);
 	vrecordstatus = new VOSSRecordStatus(this);
 	vaddoptions = new VOSSAddOptions(this);
+	vsysinfo = new VOSSSysInfoOptions(this);
 
 	watchdog = new QTimer(this);
 	connect(watchdog, SIGNAL(timeout()), this, SLOT(handle_watchdog()));
@@ -1096,6 +1137,7 @@ VOSSMainWindow :: VOSSMainWindow(const char *dsp)
 	gl_main->addWidget(vaudiodelay,2,0,1,1);
 	gl_main->addWidget(vrecordstatus,3,0,1,1);
 	gl_main->addWidget(vaddoptions,4,0,1,1);
+	gl_main->addWidget(vsysinfo,5,0,1,1);
 
 	setWindowTitle(QString("Virtual OSS Control"));
 	setWindowIcon(QIcon(QString(":/virtual_oss_ctl.png")));

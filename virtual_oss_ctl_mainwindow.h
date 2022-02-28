@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2012-2020 Hans Petter Selasky. All rights reserved.
+ * Copyright (c) 2012-2022 Hans Petter Selasky
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -127,6 +127,21 @@ public slots:
 	void handle_add();
 };
 
+class VOSSSysInfoOptions : public QGroupBox
+{
+public:
+	VOSSSysInfoOptions(VOSSMainWindow * = 0);
+	~VOSSSysInfoOptions();
+
+	void updateInfo();
+
+	VOSSMainWindow *parent;
+
+	QGridLayout *gl;
+
+	QLabel lbl_status;
+};
+
 class VOSSController : public QGroupBox
 {
 	Q_OBJECT;
@@ -219,6 +234,7 @@ public:
 
 	VOSSRecordStatus *vrecordstatus;
 	VOSSAddOptions *vaddoptions;
+	VOSSSysInfoOptions *vsysinfo;
 
 	QTimer *watchdog;
 
