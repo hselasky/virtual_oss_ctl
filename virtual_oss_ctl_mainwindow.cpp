@@ -661,7 +661,7 @@ VOSSController :: VOSSController(VOSSMainWindow *_parent, int _type, int _channe
 	connect(rx_mute, SIGNAL(stateChanged(int)), this, SLOT(handle_set_config()));
 	connect(tx_mute, SIGNAL(stateChanged(int)), this, SLOT(handle_set_config()));
 	connect(rx_polarity, SIGNAL(stateChanged(int)), this, SLOT(handle_set_config()));
-	connect(rx_polarity, SIGNAL(stateChanged(int)), this, SLOT(handle_set_config()));
+	connect(tx_polarity, SIGNAL(stateChanged(int)), this, SLOT(handle_set_config()));
 	connect(rx_amp_up, SIGNAL(released()), this, SLOT(handle_rx_amp_up()));
 	connect(rx_amp_down, SIGNAL(released()), this, SLOT(handle_rx_amp_down()));
 	connect(tx_amp_up, SIGNAL(released()), this, SLOT(handle_tx_amp_up()));
